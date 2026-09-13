@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "sqlite"
+  url = env("DATABASE_URL")
+}
+model Category {
+  id String @id @default(cuid())
+  name String @unique
+  products Product[]
+}
+model Product {
+  id String @id @default(cuid())
+  slug String @unique
+  name String
+  description String
+  image String
+  retail Int
+  wholesale Int
+  minimum Int @default(10)
+  stock Int @default(0)
+  unit String @default("بسته")
+  featured Boolean @default(false)
+  active Boolean @default(true)
+  categoryId String
+  category Category @relation(fields: [categoryId], references: [id])
+  items OrderItem[]
+}
+model User {
+  id String @id @default(cuid())
+  username String @unique
+  name String
+  password String
+  role String @default("CUSTOMER")
+  wholesaleStatus String @default("NONE")
+  sessions Session[]
+  orders Order[]
+  loginEvents LoginEvent[]
+}
+model LoginEvent {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind String
+  userAgent String
+  createdAt DateTime @default(now())
+  @@index([createdAt])
+  @@index([userId, createdAt])
+}
+model Session {
+  id String @id
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expires DateTime
+}
+model Order {
+  id String @id @default(cuid())
+  code String @unique
+  name String
+  phone String
+  address String
+  total Int
+  shipping Int
+  status String @default("PENDING")
+  authority String? @unique
+  reference String?
+  checkoutKey String? @unique
+  requestHash String?
+  createdAt DateTime @default(now())
+  userId String?
+  user User? @relation(fields: [userId], references: [id])
+  items OrderItem[]
+}
+model OrderItem {
+  id String @id @default(cuid())
+  orderId String
+  order Order @relation(fields: [orderId], references: [id])
+  productId String
+  product Product @relation(fields: [productId], references: [id])
+  name String
+  quantity Int
+  price Int
+}
+model Settings {
+  id String @id @default("shop")
+  shipping Int @default(45000)
+  freeAbove Int @default(2000000)
+  companyName String @default("نایلکس سادات")
+  companyAbout String @default("")
+  companyPhone String @default("")
+  companyEmail String @default("")
+  companyAddress String @default("")
+  companyHours String @default("")
+  companyPostalCode String @default("")
+}
+model RateLimit {
+  id String @id
+  count Int @default(1)
+  expires DateTime
+}

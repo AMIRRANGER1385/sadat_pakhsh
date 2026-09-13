@@ -1,0 +1,8 @@
+import type { Metadata } from 'next';
+import { Header,Footer,ShopProvider } from '@/components/shop';
+import { companySettings,siteName,siteDescription,siteURL } from '@/lib/site';
+import { StructuredData } from '@/components/structured-data';
+import './globals.css';
+export const dynamic='force-dynamic';
+export const metadata:Metadata={metadataBase:new URL(siteURL()),title:{default:`${siteName} | خرید عمده و خرده نایلون و نایلکس`,template:`%s | ${siteName}`},description:siteDescription,openGraph:{type:'website',locale:'fa_IR',siteName,title:siteName,description:siteDescription,images:[{url:'/social-cover.png',width:1200,height:630,alt:siteName}]},twitter:{card:'summary_large_image',title:siteName,description:siteDescription,images:['/social-cover.png']},robots:{index:true,follow:true}};
+export default async function RootLayout({children}:{children:React.ReactNode}){const c=await companySettings();return <html lang="fa" dir="rtl"><body><a className="skip-link" href="#main-content">رفتن به محتوای اصلی</a><StructuredData data={{'@context':'https://schema.org','@type':'Organization',name:siteName,legalName:c.companyName,url:siteURL(),...(c.companyPhone?{telephone:c.companyPhone}:{}),...(c.companyEmail?{email:c.companyEmail}:{}),...(c.companyAddress?{address:{'@type':'PostalAddress',streetAddress:c.companyAddress,addressCountry:'IR',...(c.companyPostalCode?{postalCode:c.companyPostalCode}:{})}}:{})}}/><ShopProvider><Header/><main id="main-content">{children}</main><Footer company={{companyName:c.companyName,companyPhone:c.companyPhone,companyEmail:c.companyEmail,companyAddress:c.companyAddress}}/></ShopProvider></body></html>}

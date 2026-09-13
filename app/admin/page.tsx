@@ -1,0 +1,7 @@
+import { currentUser } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { redirect } from 'next/navigation';
+import { LoginHistory } from '@/components/login-history';
+import { Admin } from '@/components/admin';
+export const metadata={title:'پنل مدیریت',robots:{index:false,follow:false}};
+export default async function AdminPage(){const user=await currentUser();if(user?.role!=='ADMIN')redirect('/login');const [products,categories,orders,customers,settings,count,revenue,best]=await Promise.all([db.product.findMany({where:{active:true},include:{category:true}}),db.category.findMany(),db.order.findMany({include:{items:true},orderBy:{createdAt:'desc'}}),db.user.findMany({where:{role:'CUSTOMER'},select:{id:true,name:true,username:true,wholesaleStatus:true}}),db.settings.findUniqueOrThrow({where:{id:'shop'}}),db.order.count(),db.order.aggregate({where:{status:{in:['PAID','SHIPPED','DELIVERED']}},_sum:{total:true}}),db.orderItem.groupBy({by:['name'],where:{order:{status:{in:['PAID','SHIPPED','DELIVERED']}}},_sum:{quantity:true},orderBy:{_sum:{quantity:'desc'}},take:5})]);return <div className="container page-content"><Admin loginHistory={<LoginHistory/>} products={products} categories={categories} orders={orders.map(o=>({...o,createdAt:o.createdAt.toISOString()}))} customers={customers} settings={settings} stats={{count,revenue:revenue._sum.total||0,best:best.map(b=>({name:b.name,quantity:b._sum.quantity||0}))}}/></div>}

@@ -1,0 +1,10 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { NextRequest } from 'next/server';
+import { readJSON } from '../lib/http';
+import { companySchema,passwordSchema } from '../lib/validation';
+import { jsonLD } from '../lib/site';
+test('JSON-LD cannot close a script element',()=>{const value={name:'</script><script>alert(1)</script>'};const output=jsonLD(value);assert.ok(!output.includes('<'));assert.deepEqual(JSON.parse(output),value)});
+test('bcrypt byte limit rejects truncated multibyte passwords',()=>{assert.equal(passwordSchema.safeParse('ا'.repeat(37)).success,false);assert.equal(passwordSchema.safeParse('a'.repeat(72)).success,true);assert.equal(passwordSchema.safeParse('short').success,false)});
+test('company contact fields reject injected URLs',()=>{const c={companyName:'شرکت نمونه',companyPhone:'09123456789',companyEmail:'a@example.com',companyAddress:'نشانی نمونه',companyAbout:'معرفی',companyHours:'۹ تا ۱۷',companyPostalCode:'1234567890'};assert.equal(companySchema.safeParse(c).success,true);assert.equal(companySchema.safeParse({...c,companyPhone:'javascript:alert(1)'}).success,false);assert.equal(companySchema.safeParse({...c,companyEmail:'bad\r\nBcc: x@evil.com'}).success,false)});
+test('JSON body rejects malformed, oversized and non-object payloads',async()=>{for(const body of ['{','null','[]','{"x":"'+'x'.repeat(33000)+'"}'])await assert.rejects(()=>readJSON(new NextRequest('http://localhost/api/test',{method:'POST',headers:{'content-type':'application/json'},body})));assert.deepEqual(await readJSON(new NextRequest('http://localhost/api/test',{method:'POST',headers:{'content-type':'application/json'},body:'{"ok":true}'})),{ok:true})});

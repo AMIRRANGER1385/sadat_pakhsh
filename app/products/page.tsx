@@ -1,0 +1,5 @@
+import { db } from '@/lib/db';
+import { Catalog } from '@/components/shop';
+export const dynamic='force-dynamic';
+export async function generateMetadata({searchParams}:{searchParams:Promise<{q?:string;category?:string}>}){const p=await searchParams;return {title:'خرید نایلون، نایلکس و محصولات بسته‌بندی',description:'انواع کیسه فریزر، کیسه زباله و نایلکس را مقایسه کنید و با قیمت خرده یا عمده سفارش دهید.',alternates:{canonical:'/products'},robots:{index:!p.q&&!p.category,follow:true},openGraph:{images:['/social-cover.png'],title:'محصولات نایلکس سادات',url:'/products'}};}
+export default async function Products({searchParams}:{searchParams:Promise<{q?:string;category?:string}>}){const params=await searchParams;const [products,categories]=await Promise.all([db.product.findMany({where:{active:true},include:{category:true}}),db.category.findMany()]);return <div className="container page-content"><Catalog products={products} categories={categories} initialQ={params.q} initialCategory={params.category}/></div>}
