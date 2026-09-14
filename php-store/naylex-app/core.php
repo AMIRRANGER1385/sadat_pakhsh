@@ -21,6 +21,15 @@ function number_input(string $key,int $min=0,int $max=100000000,?array $data=nul
 function phone_input(string $key='phone'): string {$v=digits(text_input($key,11,11));if(!preg_match('/^09\d{9}$/',$v))throw new ShopError('شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.');return $v;}
 function password_input(string $key): string {$s=$_POST[$key]??'';if(!is_string($s)||mb_strlen($s)<4||strlen($s)>72)throw new ShopError('رمز باید حداقل ۴ کاراکتر و حداکثر ۷۲ بایت باشد.');return $s;}
 function url(string $path='/'): string {return rtrim(config('app_url'),'/').$path;}
+function asset_url(string $name): string {
+ if(!in_array($name,['shop.css','shop.js'],true))throw new InvalidArgumentException('Unknown asset');
+ static $versions=[];
+ $file=dirname(__DIR__).'/public_html/assets/'.$name;
+ // Private code and public files can be deployed to different directories.
+ if(defined('NAYLEX_PUBLIC_ROOT'))$file=NAYLEX_PUBLIC_ROOT.'/assets/'.$name;
+ $versions[$name]??=is_file($file)?substr(hash_file('sha256',$file),0,16):'1';
+ return '/assets/'.$name.'?v='.$versions[$name];
+}
 function redirect(string $path,int $status=303): never {if(session_status()===PHP_SESSION_ACTIVE&&!session_write_close())throw new ShopError('ذخیره نشست انجام نشد؛ مدیر هاست باید فضای دیسک و مجوز پوشه نشست را بررسی کند.',503);header('Location: '.$path,true,$status);exit;}
 function flash(string $message,string $kind='success'): void {$_SESSION['flash']=[$kind,$message];}
 function csrf(): string {return $_SESSION['csrf']??=bin2hex(random_bytes(32));}
@@ -60,8 +69,13 @@ function settings(): array {return one('SELECT * FROM ns_settings WHERE id=1')??
 function unit_price(array $p,int $qty,bool $approved=false): int {return (int)(($approved||$qty>=(int)$p['minimum'])?$p['wholesale']:$p['retail']);}
 function shipping_cost(int $sum,array $s): int {return (int)$s['free_above']>0&&$sum>=(int)$s['free_above']?0:(int)$s['shipping'];}
 function cart_lines(): array {
- $u=current_user();$items=[];
- foreach($_SESSION['cart']??[] as $id=>$qty){$p=one('SELECT * FROM ns_products WHERE id=? AND active=1',[$id]);if(!$p){$items[]=['id'=>$id,'quantity'=>$qty,'missing'=>true];continue;}$p['quantity']=$qty;$p['price']=unit_price($p,$qty,($u['wholesale_status']??'')==='APPROVED');$items[]=$p;}
+ $cart=$_SESSION['cart']??[];if(!$cart)return [];
+ $u=current_user();$items=[];$products=[];
+ // Batch reads, including older sessions with larger carts, without an unbounded IN list.
+ foreach(array_chunk(array_keys($cart),100) as $ids){
+  foreach(all('SELECT * FROM ns_products WHERE active=1 AND id IN ('.implode(',',array_fill(0,count($ids),'?')).')',$ids) as $p)$products[$p['id']]=$p;
+ }
+ foreach($cart as $id=>$qty){$p=$products[$id]??null;if(!$p){$items[]=['id'=>$id,'quantity'=>$qty,'missing'=>true];continue;}$p['quantity']=$qty;$p['price']=unit_price($p,$qty,($u['wholesale_status']??'')==='APPROVED');$items[]=$p;}
  return $items;
 }
 function order_status(string $s): string {return ['PENDING'=>'در انتظار پرداخت','PAID'=>'پرداخت شده','SHIPPED'=>'ارسال شده','DELIVERED'=>'تحویل شده','EXPIRED'=>'مهلت پایان یافته؛ موجودی آزاد شده','PAYMENT_REVIEW'=>'پرداخت دریافت شده؛ نیازمند تأمین موجودی یا استرداد','CANCELLED'=>'لغو شده'][$s]??$s;}

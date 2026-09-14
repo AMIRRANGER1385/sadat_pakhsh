@@ -1,7 +1,14 @@
 <?php
 declare(strict_types=1);
 function render_route(string $path): void {
- if($path!=='/'&&str_ends_with($path,'/'))$path=rtrim($path,'/');
+ if($path!=='/'&&str_ends_with($path,'/')){
+  $clean=rtrim($path,'/');
+  if(preg_match('#^/(?:products(?:/[a-z0-9-]+)?|categories/[0-9]+-[a-z0-9-]+|about|contact|faq|wholesale)$#',$clean)){
+   $query=parse_url($_SERVER['REQUEST_URI']??'',PHP_URL_QUERY);
+   redirect(url($clean).($query!==null&&$query!==false?'?'.$query:''),301);
+  }
+  $path=$clean;
+ }
  if(str_starts_with($path,'/categories/')&&category_page($path))return;
  if($path==='/robots.txt'){header('Content-Type: text/plain; charset=utf-8');echo "User-agent: *\nAllow: /\nDisallow: /install\nSitemap: ".url('/sitemap.xml');return;}
  if($path==='/sitemap.xml'){require_once __DIR__.'/sitemap.php';serve_sitemap();return;}

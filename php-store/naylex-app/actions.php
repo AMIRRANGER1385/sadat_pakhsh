@@ -22,6 +22,7 @@ function handle_action(): never {
   $p=one('SELECT * FROM ns_products WHERE id=? AND active=1',[$id]);if(!$p&&$action!=='cart_remove')throw new ShopError('محصول موجود نیست.');
   if($action==='cart_decrease')$qty=max(0,(int)($_SESSION['cart'][$id]??0)-1);
   if($action==='cart_add')$qty+=(int)($_SESSION['cart'][$id]??0);
+  if($qty>0&&!isset($_SESSION['cart'][$id])&&count($_SESSION['cart']??[])>=100)throw new ShopError('سبد خرید حداکثر ۱۰۰ محصول متفاوت می‌پذیرد.');
   if($qty>1000||($action!=='cart_decrease'&&$p&&$qty>(int)$p['stock']))throw new ShopError('موجودی کافی نیست.');
   if($qty)$_SESSION['cart'][$id]=$qty;else unset($_SESSION['cart'][$id]);unset($_SESSION['checkout_key']);if(($_SERVER['HTTP_ACCEPT']??'')==='application/json'){$data=cart_preview_data();if(!session_write_close())throw new ShopError('ذخیره سبد انجام نشد.',503);header('Content-Type: application/json; charset=utf-8');echo json_encode($data,JSON_UNESCAPED_UNICODE);exit;}flash('سبد خرید به‌روز شد.');redirect('/cart');
  }
