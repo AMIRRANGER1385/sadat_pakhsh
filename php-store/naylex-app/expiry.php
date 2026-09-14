@@ -8,7 +8,7 @@ function record_verified_payment(array $order, string $reference): string {
  if(in_array($order['status'],['EXPIRED','PAYMENT_REVIEW','CANCELLED'],true)){
   $items=all('SELECT * FROM ns_order_items WHERE order_id=? ORDER BY product_id',[$order['id']]);
   foreach($items as $item){$p=one('SELECT stock FROM ns_products WHERE id=? FOR UPDATE',[$item['product_id']]);if(!$p||(int)$p['stock']<(int)$item['quantity'])$status='PAYMENT_REVIEW';}
-  if($status==='PAID')foreach($items as $item)query('UPDATE ns_products SET stock=stock-?,version=version+1 WHERE id=?',[$item['quantity'],$item['product_id']]);
+  if($status==='PAID')foreach($items as $item)query('UPDATE ns_products SET stock=stock-?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?',[$item['quantity'],$item['product_id']]);
  }
  query('UPDATE ns_orders SET status=?,reference=? WHERE id=?',[$status,$reference,$order['id']]);
  return $status;
@@ -40,7 +40,7 @@ function expire_order(int $id, ?callable $transport=null): string {
    }
    if(!in_array($r['status']??'', ['FAILED','REVERSED'],true))return 'deferred';
   }
-  foreach(all('SELECT * FROM ns_order_items WHERE order_id=? ORDER BY product_id',[$id]) as $i)query('UPDATE ns_products SET stock=stock+?,version=version+1 WHERE id=?',[$i['quantity'],$i['product_id']]);
+  foreach(all('SELECT * FROM ns_order_items WHERE order_id=? ORDER BY product_id',[$id]) as $i)query('UPDATE ns_products SET stock=stock+?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?',[$i['quantity'],$i['product_id']]);
   query("UPDATE ns_orders SET status='EXPIRED' WHERE id=?",[$id]);
   return 'released';
  });

@@ -24,7 +24,7 @@ function payment_url(string $authority): string {return (config('sandbox')?'http
 function release_order(int $id): void {
  transaction(function()use($id){$o=one('SELECT * FROM ns_orders WHERE id=? FOR UPDATE',[$id]);if(!$o||$o['status']!=='PENDING'||$o['authority']!==null)return;
  query("UPDATE ns_orders SET status='CANCELLED' WHERE id=?",[$id]);
- foreach(all('SELECT * FROM ns_order_items WHERE order_id=?',[$id]) as $i)query('UPDATE ns_products SET stock=stock+?,version=version+1 WHERE id=?',[$i['quantity'],$i['product_id']]);});
+ foreach(all('SELECT * FROM ns_order_items WHERE order_id=?',[$id]) as $i)query('UPDATE ns_products SET stock=stock+?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?',[$i['quantity'],$i['product_id']]);});
 }
 function checkout(): never {
  $u=current_user();$name=text_input('name',3,120);$phone=phone_input();$address=text_input('address',15,1000);$key=text_input('checkout_key',64,64);
@@ -39,7 +39,7 @@ function checkout(): never {
   foreach($cart as $id=>$qty){$qty=(int)$qty;if($qty<1||$qty>1000)throw new ShopError('تعداد خرید نامعتبر است.');$p=one('SELECT * FROM ns_products WHERE id=? FOR UPDATE',[$id]);if(!$p||!$p['active']||(int)$p['stock']<$qty)throw new ShopError('موجودی یکی از محصولات کافی نیست.');$price=unit_price($p,$qty,($u['wholesale_status']??'')==='APPROVED');$lines[]=[$p,$qty,$price];$sum+=$price*$qty;}
   $shipping=shipping_cost($sum,settings());$total=$sum+$shipping;if($total>200000000)throw new ShopError('مبلغ سفارش بیش از سقف مجاز است.');
   $code='NS-'.strtoupper(bin2hex(random_bytes(10)));query('INSERT INTO ns_orders(code,user_id,name,phone,address,total,shipping,checkout_key,request_hash) VALUES (?,?,?,?,?,?,?,?,?)',[$code,$u['id']??null,$name,$phone,$address,$total,$shipping,$key,$fingerprint]);$id=(int)db()->lastInsertId();
-  foreach($lines as [$p,$qty,$price]){query('INSERT INTO ns_order_items(order_id,product_id,name,quantity,price) VALUES (?,?,?,?,?)',[$id,$p['id'],$p['name'],$qty,$price]);query('UPDATE ns_products SET stock=stock-?,version=version+1 WHERE id=?',[$qty,$p['id']]);}
+  foreach($lines as [$p,$qty,$price]){query('INSERT INTO ns_order_items(order_id,product_id,name,quantity,price) VALUES (?,?,?,?,?)',[$id,$p['id'],$p['name'],$qty,$price]);query('UPDATE ns_products SET stock=stock-?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?',[$qty,$p['id']]);}
   return ['id'=>$id,'code'=>$code,'total'=>$total];
  });
  $_SESSION['last_order']=$order['code'];

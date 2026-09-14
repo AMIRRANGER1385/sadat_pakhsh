@@ -3,6 +3,9 @@ DirectoryIndex index.php
 <IfModule mod_rewrite.c>
 RewriteEngine On
 RewriteRule ^(?:\.git|\.env|naylex-app|storage)(?:/|$) - [F,L,NC]
+# /products is both a storefront route and an image directory.
+# Route the directory URL through PHP before the existing-directory check.
+RewriteRule ^products/?$ index.php [QSA,L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.php [QSA,L]

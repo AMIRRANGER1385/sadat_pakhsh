@@ -1,6 +1,7 @@
 node_modules/
 .next/
 .env
+cpanel-access.json
 *.db
 *.db-journal
 *.tsbuildinfo
@@ -9,3 +10,4 @@ node_modules/
 php-store/naylex-app/config.php
 php-store/naylex-app/storage/
 php-store/*.zip
+dist/
