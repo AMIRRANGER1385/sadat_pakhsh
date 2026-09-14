@@ -6,3 +6,6 @@ node_modules/
 *.tsbuildinfo
 .runtime/
 .data/
+php-store/naylex-app/config.php
+php-store/naylex-app/storage/
+php-store/*.zip
