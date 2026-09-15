@@ -8,11 +8,12 @@ function sitemap_xml(array $products,array $categories=[]): string {
  foreach(['/','/products','/about','/contact','/faq','/guides','/articles','/wholesale-buying'] as $path)$xml.='<url><loc>'.$escape(url($path)).'</loc></url>';
  foreach(buying_guides() as $guide)$xml.='<url><loc>'.$escape(url(guide_path($guide))).'</loc><lastmod>'.$escape($guide['date_modified']).'</lastmod></url>';
  ensure_article_schema();
- foreach(all("SELECT slug,updated_at FROM ns_articles WHERE active=1 AND published_at<=UTC_TIMESTAMP() ORDER BY id") as $article){
+ foreach(all("SELECT slug,image,updated_at FROM ns_articles WHERE active=1 AND published_at<=UTC_TIMESTAMP() ORDER BY id") as $article){
   if(!preg_match('/^[a-z0-9-]+$/',$article['slug']))continue;
   $xml.='<url><loc>'.$escape(url('/articles/'.$article['slug'])).'</loc>';
   $date=DateTimeImmutable::createFromFormat('!Y-m-d H:i:s',$article['updated_at'],new DateTimeZone('UTC'));
-  if($date&&$date->format('Y-m-d H:i:s')===$article['updated_at'])$xml.='<lastmod>'.$date->format('Y-m-d\TH:i:s\Z').'</lastmod>';
+  if($date&&$date->format('Y-m-d H:i:s')===$article['updated_at']&&$date->getTimestamp()<=time())$xml.='<lastmod>'.$date->format('Y-m-d\TH:i:s\Z').'</lastmod>';
+  if(valid_image($article['image']))$xml.='<image:image><image:loc>'.$escape(url($article['image'])).'</image:loc></image:image>';
   $xml.='</url>';
  }
  foreach($categories as $category)$xml.='<url><loc>'.$escape(url(category_path($category))).'</loc></url>';

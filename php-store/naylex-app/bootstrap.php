@@ -37,6 +37,8 @@ ini_set('session.use_strict_mode','1');ini_set('session.use_only_cookies','1');s
 session_set_cookie_params(['lifetime'=>0,'path'=>'/','secure'=>$secure,'httponly'=>true,'samesite'=>'Lax']);
 if(!session_start()){http_response_code(503);exit('Session storage unavailable.');}
 $path=rawurldecode(parse_url($_SERVER['REQUEST_URI']??'/',PHP_URL_PATH)?:'/');
+// Also mark redirects and error responses on private routes, not only rendered pages.
+if(preg_match('#^/(?:admin|account|login|register|cart|checkout|track|forgot-password|wholesale|install|api)(?:/|$)#',$path))header('X-Robots-Tag: noindex, nofollow');
 try {
  require __DIR__.'/cart-preview.php';require __DIR__.'/payment.php';require __DIR__.'/uploads.php';
  if($path==='/api/search') {require __DIR__.'/search.php';serve_product_search();}
@@ -56,6 +58,7 @@ try {
  if(!$e instanceof ShopError)error_log('Naylex error: '.get_class($e).' '.$e->getMessage());
  $status=$e instanceof ShopError?$e->status:500;
  http_response_code($status);
+ header('X-Robots-Tag: noindex, nofollow');
  if($e instanceof ShopError&&in_array($path,['/login','/register','/wholesale'],true)&&($_SERVER['HTTP_ACCEPT']??'')!=='application/json'){
   require_once __DIR__.'/views.php';require_once __DIR__.'/pages.php';flash($message,'error');auth_page($path!=='/login',$path==='/wholesale');exit;
  }

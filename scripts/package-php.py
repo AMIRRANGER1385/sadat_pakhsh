@@ -12,7 +12,15 @@ with ZipFile(archive,'w',ZIP_DEFLATED) as z:
  z.write(source/'INSTALL-FA.md','INSTALL-FA.md')
  z.write(root/'SEO-SITEMAP-FA.md','SEO-SITEMAP-FA.md')
  z.write(root/'SEO-KEYWORD-PLAN-FA.md','SEO-KEYWORD-PLAN-FA.md')
+ z.write(root/'README.md','README.md')
+ z.write(root/'DEPLOY-GIT-FA.md','DEPLOY-GIT-FA.md')
 with ZipFile(archive) as z:
  assert not any(n.endswith('/config.php') or '/storage/' in n or '.env' in n for n in z.namelist())
  assert z.testzip() is None
+ # Every packaged application file must exactly match the current source.
+ for name in z.namelist():
+  if name.startswith(('naylex-app/','public_html/')):
+   assert z.read(name)==(source/name).read_bytes(),name
+ for name in ['public_html/favicon.ico','public_html/assets/favicon-96.png','naylex-app/articles.php','naylex-app/search.php','naylex-app/sitemap.php']:
+  assert name in z.namelist(),name
 print(f'Hosting package: {archive.name}; {archive.stat().st_size:,} bytes; private config and storage excluded.')
