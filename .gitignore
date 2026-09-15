@@ -11,3 +11,4 @@ php-store/naylex-app/config.php
 php-store/naylex-app/storage/
 php-store/*.zip
 dist/
+Microsoft/

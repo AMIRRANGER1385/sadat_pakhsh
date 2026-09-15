@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/articles.php';
 function handle_action(): never {
  global $path;
  if($path==='/admin/upload'){$u=admin_user();rate_limit('upload:'.$u['id'],40);$image=upload_image($_FILES['photo']??[]);header('Content-Type: application/json; charset=utf-8');echo json_encode(['url'=>$image]);exit;}
@@ -30,6 +31,17 @@ function handle_action(): never {
  if($action==='track'){$code=strtoupper(text_input('code',8,40));$phone=phone_input();rate_limit('track-global',150);rate_limit('track:'.$phone,20);$o=one('SELECT id,code,status,total,reference,shipping FROM ns_orders WHERE code=? AND phone=?',[$code,$phone]);if(!$o)throw new ShopError('سفارشی با این مشخصات پیدا نشد.');$_SESSION['tracked_order']=$o['id'];redirect('/track');}
  $admin=admin_user();rate_limit('admin:'.$admin['id'],400);
  switch($action){
+ case 'article':
+  ensure_article_schema();$id=number_input('id',0,PHP_INT_MAX);$title=text_input('title',8,180);$slug=text_input('slug',3,120);if(!preg_match('/^[a-z0-9-]+$/',$slug))throw new ShopError('شناسه آدرس فقط حروف کوچک انگلیسی، عدد و خط تیره باشد.');
+  if($id&&!one('SELECT id FROM ns_articles WHERE id=?',[$id]))throw new ShopError('مقاله پیدا نشد.',404);
+  if(one('SELECT id FROM ns_articles WHERE slug=? AND id<>?',[$slug,$id]))throw new ShopError('این آدرس مقاله قبلاً استفاده شده است.');
+  if($id){$oldArticle=one('SELECT slug FROM ns_articles WHERE id=?',[$id]);if($oldArticle['slug']!==$slug)throw new ShopError('آدرس مقاله ذخیره‌شده ثابت است؛ برای حفظ لینک‌ها آن را تغییر ندهید.');}
+  $excerpt=text_input('excerpt',20,350);$body=text_input('body',80,50000);$category=number_input('category_id',0,PHP_INT_MAX);if($category&&!one('SELECT id FROM ns_categories WHERE id=?',[$category]))throw new ShopError('دسته‌بندی نامعتبر است.');
+  $image=text_input('image',0,500);if(isset($_FILES['photo'])&&$_FILES['photo']['error']!==UPLOAD_ERR_NO_FILE){rate_limit('upload:'.$admin['id'],40);$image=upload_image($_FILES['photo']);}if(!valid_image($image))throw new ShopError('برای مقاله یک تصویر معتبر انتخاب کنید.');$active=isset($_POST['active'])?1:0;
+  if($id){query('UPDATE ns_articles SET slug=?,title=?,excerpt=?,body=?,image=?,category_id=?,active=? WHERE id=?',[$slug,$title,$excerpt,$body,$image,$category?:null,$active,$id]);}
+  else query('INSERT INTO ns_articles(slug,title,excerpt,body,image,category_id,active,published_at) VALUES (?,?,?,?,?,?,?,UTC_TIMESTAMP())',[$slug,$title,$excerpt,$body,$image,$category?:null,$active]);
+  flash('مقاله ذخیره شد.');redirect('/admin?tab=articles');
+ case 'delete_article':ensure_article_schema();query('DELETE FROM ns_articles WHERE id=?',[number_input('id',1,PHP_INT_MAX)]);break;
  case 'product':
   $id=number_input('id',0,PHP_INT_MAX);$name=text_input('name',3,180);$slug=text_input('slug',1,120);if(!preg_match('/^[a-z0-9-]+$/',$slug))throw new ShopError('شناسه آدرس فقط حروف کوچک انگلیسی، عدد و خط تیره باشد.');
   $description=text_input('description',10,5000);$retail=number_input('retail',1);$wholesale=number_input('wholesale',1);if($wholesale>$retail)throw new ShopError('قیمت عمده نباید بیشتر از خرده باشد.');
@@ -52,5 +64,5 @@ function handle_action(): never {
  case 'verify_order':$id=number_input('id',1,PHP_INT_MAX);verify_order_payment($id);break;
  default:throw new ShopError('عملیات پیدا نشد.',404);
  }
- $tab=['delete_product'=>'products','category'=>'categories','delete_category'=>'categories','customer'=>'customers','shipping'=>'shipping','company'=>'company','order'=>'orders','verify_order'=>'orders'][$action]??'dashboard';flash('تغییرات ذخیره شد.');redirect('/admin?tab='.$tab);
+ $tab=['delete_product'=>'products','category'=>'categories','delete_category'=>'categories','customer'=>'customers','shipping'=>'shipping','company'=>'company','order'=>'orders','verify_order'=>'orders','delete_article'=>'articles'][$action]??'dashboard';flash('تغییرات ذخیره شد.');redirect('/admin?tab='.$tab);
 }

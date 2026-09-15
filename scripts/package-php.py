@@ -11,6 +11,7 @@ with ZipFile(archive,'w',ZIP_DEFLATED) as z:
    if p.is_file() and 'storage' not in rel.parts and p.name!='config.php':z.write(p,str(rel).replace('\\','/'))
  z.write(source/'INSTALL-FA.md','INSTALL-FA.md')
  z.write(root/'SEO-SITEMAP-FA.md','SEO-SITEMAP-FA.md')
+ z.write(root/'SEO-KEYWORD-PLAN-FA.md','SEO-KEYWORD-PLAN-FA.md')
 with ZipFile(archive) as z:
  assert not any(n.endswith('/config.php') or '/storage/' in n or '.env' in n for n in z.namelist())
  assert z.testzip() is None

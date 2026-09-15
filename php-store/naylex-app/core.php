@@ -65,7 +65,12 @@ function login_user(array $u,string $kind='LOGIN'): void {
  query('INSERT INTO ns_login_events(user_id,kind,user_agent) VALUES (?,?,?)',[$u['id'],$kind,mb_substr($_SERVER['HTTP_USER_AGENT']??'',0,300)]);
  query('DELETE FROM ns_login_events WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 90 DAY)');
 }
-function settings(): array {return one('SELECT * FROM ns_settings WHERE id=1')??throw new ShopError('فروشگاه هنوز نصب نشده است.',503);}
+function settings(): array {
+ $settings=one('SELECT * FROM ns_settings WHERE id=1')??throw new ShopError('فروشگاه هنوز نصب نشده است.',503);
+ // Public address confirmed by the owner. It remains editable in Company settings.
+ if(trim((string)$settings['company_address'])==='')$settings['company_address']='تهران، مجتمع تجریشی';
+ return $settings;
+}
 function unit_price(array $p,int $qty,bool $approved=false): int {return (int)(($approved||$qty>=(int)$p['minimum'])?$p['wholesale']:$p['retail']);}
 function shipping_cost(int $sum,array $s): int {return (int)$s['free_above']>0&&$sum>=(int)$s['free_above']?0:(int)$s['shipping'];}
 function cart_lines(): array {

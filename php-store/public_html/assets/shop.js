@@ -41,4 +41,27 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape'){cartWrap?.c
 document.addEventListener('click',event=>{if(cartWrap&&!cartWrap.contains(event.target)){cartWrap.classList.remove('is-open');cartToggle.setAttribute('aria-expanded','false');}});
 document.querySelector('[data-menu]')?.addEventListener('click',function(){const open=document.querySelector('.nav').classList.toggle('is-open');this.setAttribute('aria-expanded',String(open));});
 document.querySelectorAll('[data-confirm]').forEach(button=>button.addEventListener('click',event=>{if(!confirm(button.dataset.confirm))event.preventDefault();}));
-document.querySelectorAll('[data-photo]').forEach(input=>{let previewURL;input.addEventListener('change',()=>{const file=input.files[0];if(!file)return;if(file.size>5*1024*1024||!['image/jpeg','image/png','image/webp'].includes(file.type)){alert('عکس JPEG، PNG یا WebP تا ۵ مگابایت انتخاب کنید.');input.value='';return;}if(previewURL)URL.revokeObjectURL(previewURL);previewURL=URL.createObjectURL(file);document.querySelector('[data-preview]').src=previewURL;});});
+document.querySelectorAll('[data-photo]').forEach(input=>{let previewURL;input.addEventListener('change',()=>{const file=input.files[0];if(!file)return;if(file.size>5*1024*1024||!['image/jpeg','image/png','image/webp'].includes(file.type)){alert('عکس JPEG، PNG یا WebP تا ۵ مگابایت انتخاب کنید.');input.value='';return;}if(previewURL)URL.revokeObjectURL(previewURL);previewURL=URL.createObjectURL(file);input.closest('form').querySelector('[data-preview]').src=previewURL;});});
+
+const searchInput=document.querySelector('[data-product-search]');
+const suggestions=document.querySelector('[data-search-suggestions]');
+let searchTimer;let searchController;let searchVersion=0;
+if(suggestions){suggestions.setAttribute('role','region');suggestions.id='search-suggestions';searchInput.setAttribute('aria-controls',suggestions.id);searchInput.setAttribute('aria-expanded','false');}
+function clearSuggestions(){clearTimeout(searchTimer);searchController?.abort();searchVersion++;if(!suggestions)return;suggestions.replaceChildren();suggestions.hidden=true;searchInput.setAttribute('aria-expanded','false');}
+function productSuggestion(item){
+ const link=document.createElement('a');link.href=item.url;link.className='search-suggestion';
+ const image=document.createElement('img');image.src=item.image;image.alt=item.name;image.width=52;image.height=52;image.loading='lazy';
+ const info=document.createElement('span');const title=document.createElement('strong');title.textContent=item.name;const category=document.createElement('small');category.textContent=item.category;
+ const price=document.createElement('b');price.textContent=`${cartNumber.format(item.price)} تومان`;const unit=document.createElement('small');unit.textContent=`هر ${item.unit}`;
+ info.append(title,category);const amount=document.createElement('span');amount.className='search-suggestion-price';amount.append(price,unit);link.append(image,info,amount);return link;
+}
+searchInput?.addEventListener('input',()=>{
+ clearSuggestions();const query=searchInput.value.trim();if(query.length<2)return;const version=searchVersion;
+ searchTimer=setTimeout(async()=>{
+  if(searchController)searchController.abort();searchController=new AbortController();
+  try{const response=await fetch(`/api/search?q=${encodeURIComponent(query)}`,{signal:searchController.signal,headers:{Accept:'application/json'}});if(!response.ok)throw new Error();const data=await response.json();if(searchInput.value.trim()!==query||version!==searchVersion)return;suggestions.replaceChildren();data.items.forEach(item=>suggestions.append(productSuggestion(item)));if(!data.items.length){const empty=document.createElement('p');empty.className='search-empty';empty.textContent='محصولی با این عبارت پیدا نشد.';suggestions.append(empty);}suggestions.hidden=false;searchInput.setAttribute('aria-expanded','true');}catch(error){if(error.name!=='AbortError'&&version===searchVersion)clearSuggestions();}
+ },180);
+});
+searchInput?.addEventListener('keydown',event=>{if(event.key==='Escape')clearSuggestions();if(event.key==='ArrowDown'&&!suggestions.hidden){event.preventDefault();suggestions.querySelector('a')?.focus();}});
+suggestions?.addEventListener('keydown',event=>{const links=[...suggestions.querySelectorAll('a')];const index=links.indexOf(document.activeElement);if(event.key==='Escape'){clearSuggestions();searchInput.focus();}if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();const next=index+(event.key==='ArrowDown'?1:-1);(links[next]||searchInput).focus();}});
+document.addEventListener('click',event=>{if(searchInput&&!searchInput.closest('.search').contains(event.target))clearSuggestions();});

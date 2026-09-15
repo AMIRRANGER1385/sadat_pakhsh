@@ -39,6 +39,7 @@ if(!session_start()){http_response_code(503);exit('Session storage unavailable.'
 $path=rawurldecode(parse_url($_SERVER['REQUEST_URI']??'/',PHP_URL_PATH)?:'/');
 try {
  require __DIR__.'/cart-preview.php';require __DIR__.'/payment.php';require __DIR__.'/uploads.php';
+ if($path==='/api/search') {require __DIR__.'/search.php';serve_product_search();}
  if($path==='/media') {serve_image();exit;}
  if($path==='/install') {require __DIR__.'/install.php';exit;}
  // A dedicated marker allows a useful setup page without executing schema on normal requests.
