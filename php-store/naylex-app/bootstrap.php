@@ -23,6 +23,7 @@ if(strtolower($_SERVER['HTTP_HOST']??'')!==$expected){
 }
 $nonce=base64_encode(random_bytes(24));
 $secure=parse_url(config('app_url'),PHP_URL_SCHEME)==='https';
+header_remove('X-Powered-By');
 header('Content-Type: text/html; charset=utf-8');
 header('X-Content-Type-Options: nosniff');header('X-Frame-Options: DENY');header('Referrer-Policy: strict-origin-when-cross-origin');
 header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
@@ -38,7 +39,7 @@ session_set_cookie_params(['lifetime'=>0,'path'=>'/','secure'=>$secure,'httponly
 if(!session_start()){http_response_code(503);exit('Session storage unavailable.');}
 $path=rawurldecode(parse_url($_SERVER['REQUEST_URI']??'/',PHP_URL_PATH)?:'/');
 // Also mark redirects and error responses on private routes, not only rendered pages.
-if(preg_match('#^/(?:admin|account|login|register|cart|checkout|track|forgot-password|wholesale|install|api)(?:/|$)#',$path))header('X-Robots-Tag: noindex, nofollow');
+if(preg_match('#^/(?:admin|account|login|register|cart|checkout|track|forgot-password|wholesale-panel|install|api)(?:/|$)#',$path))header('X-Robots-Tag: noindex, nofollow');
 try {
  require __DIR__.'/cart-preview.php';require __DIR__.'/payment.php';require __DIR__.'/uploads.php';
  if($path==='/api/search') {require __DIR__.'/search.php';serve_product_search();}

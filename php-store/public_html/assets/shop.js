@@ -56,12 +56,13 @@ function productSuggestion(item){
  info.append(title,category);const amount=document.createElement('span');amount.className='search-suggestion-price';amount.append(price,unit);link.append(image,info,amount);return link;
 }
 searchInput?.addEventListener('input',()=>{
- clearSuggestions();const query=searchInput.value.trim();if(query.length<2)return;const version=searchVersion;
+ clearSuggestions();const query=searchInput.value.trim();if(query.length>80)return;const version=searchVersion;
  searchTimer=setTimeout(async()=>{
   if(searchController)searchController.abort();searchController=new AbortController();
   try{const response=await fetch(`/api/search?q=${encodeURIComponent(query)}`,{signal:searchController.signal,headers:{Accept:'application/json'}});if(!response.ok)throw new Error();const data=await response.json();if(searchInput.value.trim()!==query||version!==searchVersion)return;suggestions.replaceChildren();data.items.forEach(item=>suggestions.append(productSuggestion(item)));if(!data.items.length){const empty=document.createElement('p');empty.className='search-empty';empty.textContent='محصولی با این عبارت پیدا نشد.';suggestions.append(empty);}suggestions.hidden=false;searchInput.setAttribute('aria-expanded','true');}catch(error){if(error.name!=='AbortError'&&version===searchVersion)clearSuggestions();}
  },180);
 });
 searchInput?.addEventListener('keydown',event=>{if(event.key==='Escape')clearSuggestions();if(event.key==='ArrowDown'&&!suggestions.hidden){event.preventDefault();suggestions.querySelector('a')?.focus();}});
+searchInput?.addEventListener('focus',()=>{if(suggestions.hidden)searchInput.dispatchEvent(new Event('input'));});
 suggestions?.addEventListener('keydown',event=>{const links=[...suggestions.querySelectorAll('a')];const index=links.indexOf(document.activeElement);if(event.key==='Escape'){clearSuggestions();searchInput.focus();}if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();const next=index+(event.key==='ArrowDown'?1:-1);(links[next]||searchInput).focus();}});
 document.addEventListener('click',event=>{if(searchInput&&!searchInput.closest('.search').contains(event.target))clearSuggestions();});

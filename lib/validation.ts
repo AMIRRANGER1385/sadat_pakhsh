@@ -1,5 +1,5 @@
 import { z } from 'zod';
-export const passwordSchema=z.string().min(12,'رمز عبور حداقل ۱۲ کاراکتر باشد.').max(72).refine(v=>Buffer.byteLength(v,'utf8')<=72,'رمز عبور حداکثر ۷۲ بایت است (حروف فارسی حجم بیشتری دارند).');
+export const passwordSchema=z.string().min(8,'رمز عبور حداقل ۸ کاراکتر باشد.').max(72).refine(v=>Buffer.byteLength(v,'utf8')<=72,'رمز عبور حداکثر ۷۲ بایت است (حروف فارسی حجم بیشتری دارند).');
 export const companySchema=z.object({
  companyName:z.string().trim().min(2).max(120),
  companyAbout:z.string().trim().max(6000),

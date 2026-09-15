@@ -15,6 +15,8 @@ check_test('shipping boundary and disabled threshold',shipping_cost(999,['shippi
 check_test('XSS escaped',!str_contains(h('<script>alert(1)</script>'),'<script>'));
 check_test('Persian number normalization',digits('۰۹۱۲۳۴۵۶۷۸۹')==='09123456789');
 $_POST=['password'=>str_repeat('ا',37)];check_test('bcrypt byte limit enforced',rejects(fn()=>password_input('password')));
+$_POST=['password'=>'1234567'];check_test('password minimum rejects 7 characters',rejects(fn()=>password_input('password')));
+$_POST=['password'=>'12345678'];check_test('password minimum accepts 8 characters',password_input('password')==='12345678');
 $_POST=['password'=>str_repeat('a',72)];check_test('bcrypt valid boundary',strlen(password_input('password'))===72);
 check_test('unsafe image path rejected',!valid_image('/media?name=../../config.php')&&!valid_image('javascript:alert(1)'));
 check_test('payment request valid',validate_gateway_response('request',['data'=>['code'=>100,'authority'=>'A'.str_repeat('1',35)]])['code']===100);

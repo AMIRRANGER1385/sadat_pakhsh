@@ -19,7 +19,7 @@ function digits(string $s): string {return strtr($s,['۰'=>'0','۱'=>'1','۲'=>'
 function text_input(string $key,int $min=0,int $max=200,?array $data=null): string {$v=($data??$_POST)[$key]??'';if(!is_string($v))throw new ShopError('مقدار متنی نامعتبر است.');$v=trim($v);if(mb_strlen($v)<$min||mb_strlen($v)>$max)throw new ShopError('طول یکی از فیلدها نامعتبر است.');return $v;}
 function number_input(string $key,int $min=0,int $max=100000000,?array $data=null): int {$v=($data??$_POST)[$key]??null;if(!is_scalar($v)||!preg_match('/^\d+$/',digits((string)$v)))throw new ShopError('عدد معتبر وارد کنید.');$n=(int)digits((string)$v);if($n<$min||$n>$max)throw new ShopError('عدد خارج از محدوده مجاز است.');return $n;}
 function phone_input(string $key='phone'): string {$v=digits(text_input($key,11,11));if(!preg_match('/^09\d{9}$/',$v))throw new ShopError('شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.');return $v;}
-function password_input(string $key): string {$s=$_POST[$key]??'';if(!is_string($s)||mb_strlen($s)<4||strlen($s)>72)throw new ShopError('رمز باید حداقل ۴ کاراکتر و حداکثر ۷۲ بایت باشد.');return $s;}
+function password_input(string $key): string {$s=$_POST[$key]??'';if(!is_string($s)||mb_strlen($s)<8||strlen($s)>72)throw new ShopError('رمز باید حداقل ۸ کاراکتر و حداکثر ۷۲ بایت باشد.');return $s;}
 function url(string $path='/'): string {return rtrim(config('app_url'),'/').$path;}
 function asset_url(string $name): string {
  if(!in_array($name,['shop.css','shop.js'],true))throw new InvalidArgumentException('Unknown asset');

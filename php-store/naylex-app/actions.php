@@ -17,6 +17,7 @@ function handle_action(): never {
  }
  if($action==='switch_account'){$destination=$_POST['destination']??'/login';if(!in_array($destination,['/login','/register','/wholesale'],true))$destination='/login';$cart=$_SESSION['cart']??[];$_SESSION=['cart'=>$cart];session_regenerate_id(true);redirect($destination);}
  if($action==='logout'){$_SESSION=[];session_regenerate_id(true);redirect('/');}
+ if($action==='request_wholesale'){$u=current_user();if(!$u)throw new ShopError('ابتدا وارد حساب شوید.',401);rate_limit('wholesale:'.$u['id'],5);query("UPDATE ns_users SET wholesale_status='PENDING' WHERE id=? AND wholesale_status IN ('NONE','REJECTED')",[$u['id']]);flash('درخواست همکاری ثبت شد.');redirect('/wholesale');}
  if($action==='password'){$u=current_user();if(!$u)throw new ShopError('ابتدا وارد شوید.',401);rate_limit('password:'.$u['id'],5);$old=$_POST['current_password']??'';if(!is_string($old)||strlen($old)>72||!password_verify($old,$u['password']))throw new ShopError('رمز فعلی نادرست است.');$password=password_input('new_password');query('UPDATE ns_users SET password=?,session_version=session_version+1 WHERE id=?',[password_hash($password,PASSWORD_BCRYPT,['cost'=>12]),$u['id']]);login_user(one('SELECT * FROM ns_users WHERE id=?',[$u['id']]),'PASSWORD_CHANGE');flash('رمز تغییر کرد و نشست‌های قبلی باطل شدند.');redirect('/account');}
  if(in_array($action,['cart_add','cart_set','cart_remove','cart_decrease'],true)){
   $id=number_input('id',1,PHP_INT_MAX);$qty=$action==='cart_remove'?0:number_input('quantity',1,1000);
