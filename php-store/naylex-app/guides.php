@@ -3,9 +3,16 @@ declare(strict_types=1);
 require_once __DIR__.'/guide-content.php';
 
 function guide_path(array $guide): string {return '/guides/'.$guide['slug'];}
-function guides_for_category(array $category,int $limit=2): array {
+function guides_for_category(array $category,int $limit=6): array {
  $key=category_profile($category)['key'];
  return array_slice(array_values(array_filter(buying_guides(),fn($guide)=>in_array($key,$guide['category_keys'],true))),0,$limit);
+}
+function related_guides(array $guide,array $guides,int $limit=6): array {
+ $related=[];$seen=[$guide['slug']=>true];
+ foreach($guide['related_slugs'] as $slug)if(isset($guides[$slug])&&!isset($seen[$slug])){$related[]=$guides[$slug];$seen[$slug]=true;if(count($related)>=$limit)return $related;}
+ foreach($guides as $candidate){if(isset($seen[$candidate['slug']])||!array_intersect($guide['category_keys'],$candidate['category_keys']))continue;$related[]=$candidate;$seen[$candidate['slug']]=true;if(count($related)>=$limit)return $related;}
+ foreach($guides as $candidate){if(isset($seen[$candidate['slug']]))continue;$related[]=$candidate;$seen[$candidate['slug']]=true;if(count($related)>=$limit)break;}
+ return $related;
 }
 function guide_cards(array $guides,string $heading='راهنمای خرید'): void {
  if(!$guides)return;
@@ -23,6 +30,7 @@ function guides_page(): void {
 }
 function guide_page(string $slug): bool {
  $guides=buying_guides();$guide=$guides[$slug]??null;if(!$guide)return false;
+ $guide['related_slugs']=array_column(related_guides($guide,$guides),'slug');
  $path=guide_path($guide);
  page_header($guide['title'],$guide['description'],true,url($path),'','article');
  // Only factual, visible publisher and content revision dates; no invented expertise or reviews.

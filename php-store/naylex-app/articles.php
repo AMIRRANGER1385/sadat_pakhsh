@@ -18,6 +18,13 @@ function ensure_article_schema(): void {
  $ready=true;
 }
 function article_path(array $article): string {return '/articles/'.$article['slug'];}
+function articles_for_category(int $categoryId,int $limit=6,int $excludeId=0): array {
+ ensure_article_schema();$limit=max(1,min(12,$limit));$args=[];
+ $where='a.active=1 AND a.published_at<=UTC_TIMESTAMP()';
+ if($excludeId>0){$where.=' AND a.id<>?';$args[]=$excludeId;}
+ if($categoryId>0){$where.=' AND (a.category_id=? OR a.category_id IS NULL)';$args[]=$categoryId;$order='(a.category_id=?) DESC,a.published_at DESC,a.id DESC';$args[]=$categoryId;}else $order='a.published_at DESC,a.id DESC';
+ return all("SELECT a.*,c.name category_name FROM ns_articles a LEFT JOIN ns_categories c ON c.id=a.category_id WHERE $where ORDER BY $order LIMIT $limit",$args);
+}
 function article_topic_templates(): array {return [
  'nylon-vs-nylex'=>['تفاوت نایلون و نایلکس چیست؟','مقایسه کاربرد، جنس، ظاهر و معیارهای انتخاب نایلون و نایلکس برای خرید خرده و عمده.'],
  'nylex-count-per-kilo'=>['هر کیلو نایلکس چند عدد است؟','روش برآورد تعداد نایلکس در هر کیلو بر اساس وزن نمونه، ابعاد و ضخامت واقعی محصول.'],
@@ -31,6 +38,7 @@ function article_topic_templates(): array {return [
  ];}
 function article_template_draft(string $slug): array {$topics=article_topic_templates();$topic=$topics[$slug]??['',''];return ['id'=>0,'slug'=>isset($topics[$slug])?$slug:'','title'=>$topic[0],'excerpt'=>$topic[1],'body'=>$topic[0]."\n\nمقدمه\n\nراهنمای انتخاب\n\nعوامل مؤثر بر قیمت و کیفیت\n\nپرسش‌های متداول\n\nجمع‌بندی و لینک به محصولات مرتبط",'image'=>'','category_id'=>0,'active'=>0];}
 function article_cards(array $articles,string $heading='مقاله‌های تازه'): void {
+ if($heading==='مقاله‌های مرتبط'){$requestPath=parse_url($_SERVER['REQUEST_URI']??'',PHP_URL_PATH);if(is_string($requestPath)&&preg_match('#^/articles/([a-z0-9-]+)$#',$requestPath,$match)){$current=one('SELECT id,category_id FROM ns_articles WHERE slug=?',[$match[1]]);if($current)$articles=articles_for_category((int)($current['category_id']??0),6,(int)$current['id']);}}
  if(!$articles)return;
  ?><section class="seo-content article-links"><h2><?=h($heading)?></h2><div class="guide-grid"><?php foreach($articles as $article):?><article class="panel article-card"><?php admin_edit_link('/admin?tab=articles&edit='.$article['id'],'ویرایش این مقاله');if($article['image']):?><a href="<?=h(article_path($article))?>"><img src="<?=h($article['image'])?>" alt="<?=h($article['title'])?>" width="420" height="240" loading="lazy"></a><?php endif;?><h3><a href="<?=h(article_path($article))?>"><?=h($article['title'])?></a></h3><p><?=h($article['excerpt'])?></p><a class="text-link" href="<?=h(article_path($article))?>">خواندن مقاله</a></article><?php endforeach;?></div></section><?php
 }
