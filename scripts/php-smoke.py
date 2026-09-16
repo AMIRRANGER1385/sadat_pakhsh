@@ -48,7 +48,7 @@ csrf=token('/login')
 check('wrong password rejected',request('/login',{'_csrf':csrf,'action':'login','username':'admin','password':'incorrect'})[0]==400)
 check('login',request('/login',{'_csrf':csrf,'action':'login',**credentials})[0]==303)
 check('history records login',b'admin' in request('/admin?tab=history')[1])
-for tab in ['dashboard','products','categories','orders','customers','history','company','shipping','security']:
+for tab in ['dashboard','products','categories','orders','customers','history','operations','company','shipping','security']:
  check('admin '+tab,request('/admin?tab='+tab)[0]==200)
 csrf=token('/admin?tab=company')
 company={'action':'company','company_name':'شرکت آزمون','company_about':'معرفی آزمایشی فروشگاه','company_phone':'02112345678','company_email':'test@example.com','company_address':'نشانی آزمایشی تهران','company_hours':'۹ تا ۱۷','company_postal_code':'1234567890','_csrf':csrf}
@@ -79,8 +79,8 @@ code,body,_=request('/cart');check('wholesale price in cart','۸۰,۰۰۰'.encod
 check('overselling rejected',request('/',{'_csrf':token('/cart'),'action':'cart_set','id':pid,'quantity':21})[0]==400)
 code,body,_=request('/checkout');checkout_key=re.search(rb'name="checkout_key" value="([a-f0-9]+)"',body).group(1).decode()
 check('unconfigured gateway fails safely',request('/checkout',{'_csrf':token('/checkout'),'action':'checkout','checkout_key':checkout_key,'name':'گیرنده آزمون','phone':'09123456789','address':'نشانی آزمایشی کامل برای سفارش خرید'})[0]==400)
-customer=client();csrf=token('/wholesale',customer)
-check('customer registration',request('/wholesale',{'_csrf':csrf,'action':'register','name':'مشتری آزمون','username':'09'+str(secrets.randbelow(10**9)).zfill(9),'password':secrets.token_urlsafe(20)},customer)[0]==303)
+customer=client();csrf=token('/register',customer);suffix=secrets.token_hex(4)
+check('customer registration',request('/register',{'_csrf':csrf,'action':'register','name':'مشتری آزمون '+suffix,'username':'09'+str(secrets.randbelow(10**9)).zfill(9),'password':secrets.token_urlsafe(20)},customer)[0]==303)
 check('customer cannot manage',request('/admin',{'_csrf':token('/account',customer),'action':'company'},customer)[0]==403)
 check('logout',request('/',{'_csrf':token('/admin'),'action':'logout'})[0]==303)
 check('admin access removed',request('/admin')[0]==303)

@@ -6,7 +6,7 @@ $config=require __DIR__.'/../php-store/naylex-app/config.php';
 if(config('db_name')!=='naylex_local'||config('db_port')!==33077)throw new RuntimeException('Local database only');
 $values=parse_ini_file(__DIR__.'/../.env',false,INI_SCANNER_RAW);
 $username=digits(trim($values['ADMIN_USERNAME']??''));$password=$values['ADMIN_PASSWORD']??'';
-if(mb_strlen($username)<3||strlen($username)>100||strlen($password)<1||strlen($password)>72)throw new RuntimeException('Invalid ADMIN_USERNAME or ADMIN_PASSWORD in .env');
+if(mb_strlen($username)<3||strlen($username)>100||strlen($password)<12||strlen($password)>72)throw new RuntimeException('ADMIN_PASSWORD must contain 12 to 72 bytes.');
 transaction(function()use($username,$password){
  $u=one('SELECT * FROM ns_users WHERE username=? FOR UPDATE',[$username]);
  if($u&&$u['role']!=='ADMIN')throw new RuntimeException('Username belongs to a customer; no changes made');

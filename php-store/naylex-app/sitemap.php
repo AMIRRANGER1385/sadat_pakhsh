@@ -5,7 +5,7 @@ require_once __DIR__.'/articles.php';
 function sitemap_xml(array $products,array $categories=[]): string {
  $escape=static fn(string $value):string=>htmlspecialchars($value,ENT_XML1|ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
  $xml='<?xml version="1.0" encoding="UTF-8"?>'."\n".'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">';
- foreach(['/','/products','/about','/contact','/faq','/privacy','/guides','/articles','/wholesale-buying','/wholesale'] as $path)$xml.='<url><loc>'.$escape(url($path)).'</loc></url>';
+ foreach(['/','/products','/plastic-products','/about','/contact','/faq','/privacy','/terms','/shipping','/returns','/payment-guide','/guides','/articles','/wholesale-buying','/wholesale'] as $path)$xml.='<url><loc>'.$escape(url($path)).'</loc></url>';
  foreach(buying_guides() as $guide)$xml.='<url><loc>'.$escape(url(guide_path($guide))).'</loc><lastmod>'.$escape($guide['date_modified']).'</lastmod></url>';
  ensure_article_schema();
  foreach(all("SELECT slug,image,updated_at FROM ns_articles WHERE active=1 AND published_at<=UTC_TIMESTAMP() ORDER BY id") as $article){

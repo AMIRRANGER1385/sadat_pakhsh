@@ -8,7 +8,7 @@ function gateway(string $action,array $payload): array {
  $ch=curl_init($base.'/pg/v4/payment/'.$action.'.json');
  curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_RETURNTRANSFER=>true,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>20,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2,CURLOPT_HTTPHEADER=>['Content-Type: application/json'],CURLOPT_POSTFIELDS=>json_encode(['merchant_id'=>config('merchant_id')]+$payload)]);
  $response=curl_exec($ch);$status=curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
- if($response===false||$status!==200)throw new ShopError('ارتباط با درگاه برقرار نشد؛ دوباره تلاش کنید.');
+ if($response===false||$status!==200){if(function_exists('operational_log'))operational_log('payment_gateway_error',['action'=>$action,'http_status'=>$status,'curl_error'=>$response===false]);throw new ShopError('ارتباط با درگاه برقرار نشد؛ دوباره تلاش کنید.');}
  return validate_gateway_response($action,json_decode($response,true));
 }
 function validate_gateway_response(string $action,mixed $response): array {
@@ -36,14 +36,14 @@ function checkout(): never {
  if($old){if(!hash_equals($old['request_hash'],$fingerprint))throw new ShopError('اطلاعات سفارش تغییر کرده؛ از سبد خرید دوباره وارد تسویه شوید.');if($old['status']==='PENDING'&&$old['authority'])redirect(payment_url($old['authority']));redirect('/track?code='.$old['code']);}
  if(!config('merchant_id'))throw new ShopError('درگاه هنوز توسط مدیر فعال نشده است.');
  $order=transaction(function()use($u,$cart,$name,$phone,$address,$key,$fingerprint){$lines=[];$sum=0;
-  foreach($cart as $id=>$qty){$qty=(int)$qty;if($qty<1||$qty>1000)throw new ShopError('تعداد خرید نامعتبر است.');$p=one('SELECT * FROM ns_products WHERE id=? FOR UPDATE',[$id]);if(!$p||!$p['active']||(int)$p['stock']<$qty)throw new ShopError('موجودی یکی از محصولات کافی نیست.');$price=unit_price($p,$qty,($u['wholesale_status']??'')==='APPROVED');$lines[]=[$p,$qty,$price];$sum+=$price*$qty;}
+  foreach($cart as $id=>$qty){$qty=(int)$qty;if($qty<1||$qty>1000)throw new ShopError('تعداد خرید نامعتبر است.');$p=one('SELECT * FROM ns_products WHERE id=? FOR UPDATE',[$id]);if(!$p||!$p['active']||(int)$p['stock']<$qty)throw new ShopError('موجودی یکی از محصولات کافی نیست.');$price=unit_price($p,$qty);$lines[]=[$p,$qty,$price];$sum+=$price*$qty;}
   $shipping=shipping_cost($sum,settings());$total=$sum+$shipping;if($total>200000000)throw new ShopError('مبلغ سفارش بیش از سقف مجاز است.');
   $code='NS-'.strtoupper(bin2hex(random_bytes(10)));query('INSERT INTO ns_orders(code,user_id,name,phone,address,total,shipping,checkout_key,request_hash) VALUES (?,?,?,?,?,?,?,?,?)',[$code,$u['id']??null,$name,$phone,$address,$total,$shipping,$key,$fingerprint]);$id=(int)db()->lastInsertId();
   foreach($lines as [$p,$qty,$price]){query('INSERT INTO ns_order_items(order_id,product_id,name,quantity,price) VALUES (?,?,?,?,?)',[$id,$p['id'],$p['name'],$qty,$price]);query('UPDATE ns_products SET stock=stock-?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?',[$qty,$p['id']]);}
   return ['id'=>$id,'code'=>$code,'total'=>$total];
  });
  $_SESSION['last_order']=$order['code'];
- try{$r=gateway('request',['amount'=>$order['total']*10,'callback_url'=>url('/api/payment/callback'),'description'=>'سفارش '.$order['code'],'metadata'=>['mobile'=>$phone]]);if(query("UPDATE ns_orders SET authority=? WHERE id=? AND status='PENDING'",[$r['authority'],$order['id']])->rowCount()!==1)throw new ShopError('مهلت سفارش پایان یافته است؛ سفارش جدید ثبت کنید.');redirect(payment_url($r['authority']));}
+ try{$r=gateway('request',['amount'=>$order['total']*10,'callback_url'=>url('/api/payment/callback'),'description'=>'سفارش '.$order['code'],'metadata'=>['mobile'=>$phone]]);if(query("UPDATE ns_orders SET authority=? WHERE id=? AND status='PENDING'",[$r['authority'],$order['id']])->rowCount()!==1)throw new ShopError('مهلت سفارش پایان یافته است؛ سفارش جدید ثبت کنید.');analytics_event('payment_started',null,(int)$order['id']);redirect(payment_url($r['authority']));}
  catch(Throwable $e){release_order($order['id']);unset($_SESSION['checkout_key']);throw $e;}
 }
 function payment_callback(): never {
@@ -52,6 +52,6 @@ function payment_callback(): never {
  $result='failed';
  if(in_array($o['status'],['PAID','SHIPPED','DELIVERED'],true))$result='success';
  else{try{$state=verify_order_payment((int)$o['id']);$result=$state==='PAYMENT_REVIEW'?'review':'success';}catch(Throwable){$result='retry';}}
- if($result==='success'&&($_SESSION['last_order']??'')===$o['code']){unset($_SESSION['cart'],$_SESSION['checkout_key']);}
+ if($result==='success'){analytics_event('purchase',null,(int)$o['id']);if(($_SESSION['last_order']??'')===$o['code'])unset($_SESSION['cart'],$_SESSION['checkout_key']);}
  redirect('/track?code='.$o['code'].'&payment='.$result);
 }

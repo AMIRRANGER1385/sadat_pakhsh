@@ -66,3 +66,7 @@ searchInput?.addEventListener('keydown',event=>{if(event.key==='Escape')clearSug
 searchInput?.addEventListener('focus',()=>{if(suggestions.hidden)searchInput.dispatchEvent(new Event('input'));});
 suggestions?.addEventListener('keydown',event=>{const links=[...suggestions.querySelectorAll('a')];const index=links.indexOf(document.activeElement);if(event.key==='Escape'){clearSuggestions();searchInput.focus();}if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();const next=index+(event.key==='ArrowDown'?1:-1);(links[next]||searchInput).focus();}});
 document.addEventListener('click',event=>{if(searchInput&&!searchInput.closest('.search').contains(event.target))clearSuggestions();});
+const newProductForm=document.querySelector('.product-form input[name="id"][value="0"]')?.form;
+if(newProductForm){const minimum=newProductForm.querySelector('[name="minimum"]');if(minimum&&minimum.value==='50')minimum.value='100';newProductForm.querySelectorAll('label,p').forEach(element=>{for(const node of element.childNodes)if(node.nodeType===Node.TEXT_NODE)node.textContent=node.textContent.replaceAll('۵۰','۱۰۰');});}
+const customerHelp=document.querySelector('.footer-main>div:nth-child(3)');
+if(customerHelp){for(const [href,label] of [['/terms','قوانین و مقررات'],['/returns','شرایط مرجوعی'],['/payment-guide','راهنمای پرداخت']]){if(!customerHelp.querySelector(`a[href="${href}"]`)){const link=document.createElement('a');link.href=href;link.textContent=label;customerHelp.append(link);}}}

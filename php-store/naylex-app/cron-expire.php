@@ -4,6 +4,8 @@ if(PHP_SAPI!=='cli'){http_response_code(404);exit;}
 $config=require (getenv('NAYLEX_CONFIG')?:__DIR__.'/config.php');
 require __DIR__.'/core.php';
 require __DIR__.'/payment.php';
+require __DIR__.'/uploads.php';
+require __DIR__.'/operations.php';
 $storage=config('storage');
 if(!is_file($storage.'/installed.lock')){fwrite(STDERR,"Installation incomplete.\n");exit(1);}
 $lock=fopen($storage.'/expiry.lock','c+');
@@ -19,6 +21,6 @@ try{
   file_put_contents($cursorPath,(string)$row['id'],LOCK_EX);
   if(microtime(true)-$start>220)break;
  }
- echo gmdate('c').' '.json_encode($counts).PHP_EOL;
+ $counts['uploads']=cleanup_unused_uploads(86400,200);operational_log('cron_expiry',$counts);echo gmdate('c').' '.json_encode($counts).PHP_EOL;
  exit($counts['errors']?1:0);
 }catch(Throwable){fwrite(STDERR,"Expiry job failed; check database and storage configuration.\n");exit(1);}

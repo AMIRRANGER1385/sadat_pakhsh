@@ -15,9 +15,9 @@ function search_score(string $term,string $name,string $category): ?int {
  return $score+1;
 }
 function search_products(string $term,int $limit=6): array {
- $normalized=search_normalize($term);$like='%'.$normalized.'%';
+ $normalized=search_normalize($term);$brandQueries=['پلاستیک سادات','پلاستیکک سادات','پخش پلاستیک','پخش پلاستیکک','بازرگانی سادات پخش','سادات پخش','نایلکس سادات','فروش عمده','فروش پلاستیک','فروش نایلکس','محصولات پلاستیکی'];foreach($brandQueries as$brandQuery)if(str_contains($normalized,search_normalize($brandQuery))){$normalized='';break;}$like='%'.$normalized.'%';
  $sql='SELECT p.*,c.name category_name FROM ns_products p JOIN ns_categories c ON c.id=p.category_id WHERE p.active=1';
- $rows=$normalized===''?all($sql.' ORDER BY p.featured DESC,p.id DESC LIMIT 6'):all($sql." AND (REPLACE(REPLACE(p.name,'ي','ی'),'ك','ک') LIKE ? OR REPLACE(REPLACE(c.name,'ي','ی'),'ك','ک') LIKE ?) ORDER BY p.featured DESC,p.id DESC LIMIT 100",[$like,$like]);
+ $fetchLimit=min(500,max(6,$limit));$rows=$normalized===''?all($sql.' ORDER BY p.featured DESC,p.id DESC LIMIT '.$fetchLimit):all($sql." AND (REPLACE(REPLACE(p.name,'ي','ی'),'ك','ک') LIKE ? OR REPLACE(REPLACE(c.name,'ي','ی'),'ك','ک') LIKE ?) ORDER BY p.featured DESC,p.id DESC LIMIT ".$fetchLimit,[$like,$like]);
  // Fuzzy matching is deliberately bounded to 500 candidates.
  if($normalized!==''&&count($rows)<$limit){$seen=array_column($rows,null,'id');foreach(all($sql.' ORDER BY p.featured DESC,p.id DESC LIMIT 500') as $p)$seen[$p['id']]=$p;$rows=array_values($seen);}
  $ranked=[];foreach($rows as $p){$score=search_score($normalized,$p['name'],$p['category_name']);if($score!==null){$p['_score']=$score;$ranked[]=$p;}}

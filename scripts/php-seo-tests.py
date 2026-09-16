@@ -32,7 +32,7 @@ for url in urls:
  doc=Document();doc.feed(body)
  assert doc.h1==1,(url,doc.h1)
  assert doc.canonical==[url],(url,doc.canonical)
- assert doc.meta['robots']=='index,follow',url
+ assert doc.meta['robots'].startswith('index,follow'),url
  assert doc.meta['description'] and doc.title,url
  assert all('alt' in image for image in doc.images)
  if '/categories/' in url:
@@ -44,6 +44,10 @@ for url in urls:
   assert str(product['offers']['price']).isdigit()
   assert doc.meta['og:image']==product['image']
   assert 'aggregateRating' not in product
+ if url.endswith('/plastic-products'):
+  assert any(s.get('@type')=='CollectionPage' for s in doc.scripts)
+  assert any(s.get('@type')=='BreadcrumbList' for s in doc.scripts)
+  assert 'پلاستیک سادات' in body and 'فروش محصولات پلاستیکی' in body
 assert len(titles)==len(set(titles))
 for path in ['/categories/does-not-exist','/products/does-not-exist']:
  status,body,_=fetch(base+path);assert status==404

@@ -32,6 +32,7 @@ function asset_url(string $name): string {
 }
 function redirect(string $path,int $status=303): never {if(session_status()===PHP_SESSION_ACTIVE&&!session_write_close())throw new ShopError('ذخیره نشست انجام نشد؛ مدیر هاست باید فضای دیسک و مجوز پوشه نشست را بررسی کند.',503);header('Location: '.$path,true,$status);exit;}
 function flash(string $message,string $kind='success'): void {$_SESSION['flash']=[$kind,$message];}
+function expire_cart_if_stale(int $now): bool {if(!empty($_SESSION['cart'])&&($_SESSION['cart_updated_at']??0)<$now-86400){unset($_SESSION['cart'],$_SESSION['cart_updated_at'],$_SESSION['checkout_key']);$_SESSION['cart_expired']=true;return true;}return false;}
 function csrf(): string {return $_SESSION['csrf']??=bin2hex(random_bytes(32));}
 function csrf_field(): void {echo '<input type="hidden" name="_csrf" value="'.h(csrf()).'">';}
 function verify_csrf(): void {
@@ -61,7 +62,7 @@ function login_account(string $identifier): ?array {
  return $matches[0]??null;
 }
 function login_user(array $u,string $kind='LOGIN'): void {
- session_regenerate_id(true);$_SESSION['user_id']=(int)$u['id'];$_SESSION['version']=(int)$u['session_version'];$_SESSION['expires']=time()+86400;$_SESSION['csrf']=bin2hex(random_bytes(32));
+ session_regenerate_id(true);$_SESSION['user_id']=(int)$u['id'];$_SESSION['version']=(int)$u['session_version'];$_SESSION['expires']=time()+($u['role']==='ADMIN'?1800:86400);$_SESSION['csrf']=bin2hex(random_bytes(32));
  query('INSERT INTO ns_login_events(user_id,kind,user_agent) VALUES (?,?,?)',[$u['id'],$kind,mb_substr($_SERVER['HTTP_USER_AGENT']??'',0,300)]);
  query('DELETE FROM ns_login_events WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 90 DAY)');
 }
@@ -69,9 +70,10 @@ function settings(): array {
  $settings=one('SELECT * FROM ns_settings WHERE id=1')??throw new ShopError('فروشگاه هنوز نصب نشده است.',503);
  // Public address confirmed by the owner. It remains editable in Company settings.
  if(trim((string)$settings['company_address'])==='')$settings['company_address']='تهران، مجتمع تجریشی';
+ if(trim((string)$settings['company_email'])==='')$settings['company_email']='info@sadatpakhsh.ir';
  return $settings;
 }
-function unit_price(array $p,int $qty,bool $approved=false): int {return (int)(($approved||$qty>=(int)$p['minimum'])?$p['wholesale']:$p['retail']);}
+function unit_price(array $p,int $qty,bool $unused=false): int {return (int)($qty>=(int)$p['minimum']?$p['wholesale']:$p['retail']);}
 function shipping_cost(int $sum,array $s): int {return (int)$s['free_above']>0&&$sum>=(int)$s['free_above']?0:(int)$s['shipping'];}
 function cart_lines(): array {
  $cart=$_SESSION['cart']??[];if(!$cart)return [];
@@ -80,7 +82,7 @@ function cart_lines(): array {
  foreach(array_chunk(array_keys($cart),100) as $ids){
   foreach(all('SELECT * FROM ns_products WHERE active=1 AND id IN ('.implode(',',array_fill(0,count($ids),'?')).')',$ids) as $p)$products[$p['id']]=$p;
  }
- foreach($cart as $id=>$qty){$p=$products[$id]??null;if(!$p){$items[]=['id'=>$id,'quantity'=>$qty,'missing'=>true];continue;}$p['quantity']=$qty;$p['price']=unit_price($p,$qty,($u['wholesale_status']??'')==='APPROVED');$items[]=$p;}
+ foreach($cart as $id=>$qty){$p=$products[$id]??null;if(!$p){$items[]=['id'=>$id,'quantity'=>$qty,'missing'=>true];continue;}$p['quantity']=$qty;$p['price']=unit_price($p,$qty);$items[]=$p;}
  return $items;
 }
 function order_status(string $s): string {return ['PENDING'=>'در انتظار پرداخت','PAID'=>'پرداخت شده','SHIPPED'=>'ارسال شده','DELIVERED'=>'تحویل شده','EXPIRED'=>'مهلت پایان یافته؛ موجودی آزاد شده','PAYMENT_REVIEW'=>'پرداخت دریافت شده؛ نیازمند تأمین موجودی یا استرداد','CANCELLED'=>'لغو شده'][$s]??$s;}

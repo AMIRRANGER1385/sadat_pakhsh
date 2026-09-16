@@ -26,3 +26,13 @@ function serve_image(): void {
  $file=config('storage').'/uploads/'.$name;if(!is_file($file)){http_response_code(404);return;}
  session_write_close();header('Content-Type: image/webp');header('Cache-Control: public, max-age=31536000, immutable');header('Content-Length: '.filesize($file));header('Content-Disposition: inline; filename="'.$name.'"');readfile($file);
 }
+
+function cleanup_unused_uploads(int $graceSeconds=86400,int $limit=200): array {
+ $directory=rtrim((string)config('storage'),'/\\').'/uploads';$result=['scanned'=>0,'deleted'=>0,'errors'=>0];if(!is_dir($directory))return $result;
+ $used=[];$rows=all("SELECT image FROM ns_products WHERE image LIKE '/media?name=%'");
+ try{$rows=array_merge($rows,all("SELECT image FROM ns_articles WHERE image LIKE '/media?name=%'"));}catch(Throwable){}
+ foreach($rows as$row)if(preg_match('/^\/media\?name=([a-f0-9]{48}\.webp)$/',$row['image'],$match))$used[$match[1]]=true;
+ $cutoff=time()-max(3600,$graceSeconds);$files=glob($directory.'/*.webp')?:[];
+ foreach($files as$file){if($result['scanned']++>=$limit)break;$name=basename($file);if(isset($used[$name])||!preg_match('/^[a-f0-9]{48}\.webp$/',$name)||(filemtime($file)?:time())>$cutoff)continue;if(@unlink($file))$result['deleted']++;else$result['errors']++;}
+ return $result;
+}
