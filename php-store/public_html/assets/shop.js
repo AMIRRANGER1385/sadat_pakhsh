@@ -6,6 +6,7 @@ document.querySelectorAll('.auth-form input[name=password]').forEach(input=>{
 const cartNumber=new Intl.NumberFormat('fa-IR');
 function renderCart(data){
  const count=document.querySelector('[data-cart-count]');if(!count)return;
+ document.querySelectorAll('[data-wholesale-recommendation]').forEach(box=>{const qty=data.items.find(item=>item.id===Number(box.dataset.productId))?.quantity||0;box.hidden=qty<Number(box.dataset.threshold);});
  count.textContent=cartNumber.format(data.count);
  document.querySelector('[data-cart-total]').textContent=cartNumber.format(data.total);
  const list=document.querySelector('[data-cart-items]');list.replaceChildren();

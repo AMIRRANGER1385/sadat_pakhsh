@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/product-sales.php';
 final class ShopError extends RuntimeException {
  public function __construct(string $message, public readonly int $status=400) { parent::__construct($message); }
 }
@@ -73,7 +74,7 @@ function settings(): array {
  if(trim((string)$settings['company_email'])==='')$settings['company_email']='info@sadatpakhsh.ir';
  return $settings;
 }
-function unit_price(array $p,int $qty,bool $unused=false): int {return (int)($qty>=(int)$p['minimum']?$p['wholesale']:$p['retail']);}
+function unit_price(array $p,int $qty,bool $unused=false): int {return (int)((is_wholesale_product($p)||$qty>=(int)$p['minimum'])?$p['wholesale']:$p['retail']);}
 function shipping_cost(int $sum,array $s): int {return (int)$s['free_above']>0&&$sum>=(int)$s['free_above']?0:(int)$s['shipping'];}
 function cart_lines(): array {
  $cart=$_SESSION['cart']??[];if(!$cart)return [];

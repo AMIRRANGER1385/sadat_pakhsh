@@ -9,7 +9,9 @@ function sitemap_escape(string $value): string {
 
 function sitemap_lastmod(?string $value,bool $dateOnly=false): ?string {
  if(!$value)return null;
+ if(!preg_match('/^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})?)?$/D',$value))return null;
  try{$date=new DateTimeImmutable($value,new DateTimeZone('UTC'));}catch(Throwable){return null;}
+ $errors=DateTimeImmutable::getLastErrors();if($errors&&($errors['warning_count']||$errors['error_count']))return null;
  if($date->getTimestamp()>time())return null;
  return $dateOnly?$date->format('Y-m-d'):$date->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z');
 }
@@ -23,7 +25,6 @@ function sitemap_urlset(array $entries): string {
   if(!empty($entry['lastmod']))$xml.='<lastmod>'.sitemap_escape($entry['lastmod']).'</lastmod>';
   if(!empty($entry['image'])&&valid_image($entry['image'])){
    $xml.='<image:image><image:loc>'.sitemap_escape(url($entry['image'])).'</image:loc>';
-   if(!empty($entry['image_title']))$xml.='<image:title>'.sitemap_escape($entry['image_title']).'</image:title>';
    $xml.='</image:image>';
   }
   $xml.='</url>'."\n";
@@ -88,8 +89,25 @@ function sitemap_section_lastmod(array $entries): ?string {
  $dates=array_values(array_filter(array_column($entries,'lastmod')));sort($dates,SORT_STRING);return $dates?end($dates):null;
 }
 
+/** Keep every map comfortably below Google's 50,000 URLs and 50 MB limits. */
+function sitemap_chunks(array $entries,int $maxUrls=5000,int $maxBytes=45000000): array {
+ $chunks=[];$chunk=[];$bytes=0;$seen=[];
+ foreach($entries as $entry){
+  if(isset($seen[$entry['path']]))continue;$seen[$entry['path']]=true;
+  $size=strlen(sitemap_urlset([$entry]));
+  if($size>$maxBytes)throw new RuntimeException('Sitemap entry exceeds size limit.');
+  if($chunk&&(count($chunk)>=$maxUrls||$bytes+$size>$maxBytes)){$chunks[]=$chunk;$chunk=[];$bytes=0;}
+  $chunk[]=$entry;$bytes+=$size;
+ }
+ if($chunk)$chunks[]=$chunk;return $chunks;
+}
 function sitemap_index(): string {
- $maps=[];foreach(['pages','products','categories','guides','articles'] as $section){$entries=sitemap_section_entries($section)??[];if(!$entries)continue;$map=['path'=>'/sitemaps/'.$section.'.xml'];$lastmod=sitemap_section_lastmod($entries);if($lastmod)$map['lastmod']=$lastmod;$maps[]=$map;}
+ $maps=[];foreach(['pages','products','categories','guides','articles'] as $section){
+  foreach(sitemap_chunks(sitemap_section_entries($section)??[]) as $i=>$chunk){
+   // Do not infer file modification time from the newest remaining URL: removals also change a map.
+   $maps[]=['path'=>'/sitemaps/'.$section.($i?'-'.($i+1):'').'.xml'];
+  }
+ }
  return sitemap_index_xml($maps);
 }
 
@@ -109,6 +127,9 @@ function send_sitemap(string $xml): void {
 }
 
 function serve_sitemap(): void {send_sitemap(sitemap_index());}
-function serve_sitemap_section(string $section): void {
- $entries=sitemap_section_entries($section);if($entries===null){not_found_page();return;}send_sitemap(sitemap_urlset($entries));
+function serve_sitemap_section(string $section,int $part=1): void {
+ $entries=sitemap_section_entries($section);if($entries===null){not_found_page();return;}
+ $chunks=sitemap_chunks($entries);
+ if($part<1||($part>1&&!isset($chunks[$part-1]))){not_found_page();return;}
+ send_sitemap(sitemap_urlset($chunks[$part-1]??[]));
 }

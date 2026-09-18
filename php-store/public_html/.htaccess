@@ -2,6 +2,9 @@ Options -Indexes
 DirectoryIndex index.php
 <IfModule mod_rewrite.c>
 RewriteEngine On
+# Keep one crawlable origin. HSTS does not redirect the first plain-HTTP visit.
+RewriteCond %{HTTPS} !=on
+RewriteRule ^ https://sadatpakhsh.ir%{REQUEST_URI} [R=301,L,NE]
 RewriteRule ^(?:\.git|\.env|naylex-app|storage)(?:/|$) - [F,L,NC]
 # /products is both a storefront route and an image directory.
 # Route the directory URL through PHP before the existing-directory check.
