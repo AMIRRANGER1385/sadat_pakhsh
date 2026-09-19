@@ -111,6 +111,7 @@ Sitemap index شامل صفحات، محصولات، دسته‌ها، راهن�
 
 ## ۱۵. فایل‌های اصلی تغییرکرده
 
+- `php-store/naylex-app/categories.php`
 - `php-store/naylex-app/landing-pages.php`
 - `php-store/naylex-app/product-seo.php`
 - `php-store/naylex-app/pages.php`

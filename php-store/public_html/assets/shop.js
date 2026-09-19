@@ -41,6 +41,10 @@ cartToggle?.addEventListener('click',()=>{const open=cartWrap.classList.toggle('
 document.addEventListener('keydown',event=>{if(event.key==='Escape'){cartWrap?.classList.remove('is-open');cartToggle?.setAttribute('aria-expanded','false');document.activeElement?.blur();}});
 document.addEventListener('click',event=>{if(cartWrap&&!cartWrap.contains(event.target)){cartWrap.classList.remove('is-open');cartToggle.setAttribute('aria-expanded','false');}});
 document.querySelector('[data-menu]')?.addEventListener('click',function(){const open=document.querySelector('.nav').classList.toggle('is-open');this.setAttribute('aria-expanded',String(open));});
+const categoryToggle=document.querySelector('[data-category-toggle]');
+categoryToggle?.addEventListener('click',function(event){event.stopPropagation();const wrap=this.closest('.nav-category-wrap');const open=wrap.classList.toggle('is-open');this.setAttribute('aria-expanded',String(open));});
+document.addEventListener('click',event=>{const wrap=document.querySelector('.nav-category-wrap');if(wrap&&!wrap.contains(event.target)){wrap.classList.remove('is-open');categoryToggle?.setAttribute('aria-expanded','false');}});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'){document.querySelector('.nav-category-wrap')?.classList.remove('is-open');categoryToggle?.setAttribute('aria-expanded','false');categoryToggle?.focus();}});
 document.querySelectorAll('[data-confirm]').forEach(button=>button.addEventListener('click',event=>{if(!confirm(button.dataset.confirm))event.preventDefault();}));
 document.querySelectorAll('[data-photo]').forEach(input=>{let previewURL;input.addEventListener('change',()=>{const file=input.files[0];if(!file)return;if(file.size>5*1024*1024||!['image/jpeg','image/png','image/webp'].includes(file.type)){alert('عکس JPEG، PNG یا WebP تا ۵ مگابایت انتخاب کنید.');input.value='';return;}if(previewURL)URL.revokeObjectURL(previewURL);previewURL=URL.createObjectURL(file);input.closest('form').querySelector('[data-preview]').src=previewURL;});});
 

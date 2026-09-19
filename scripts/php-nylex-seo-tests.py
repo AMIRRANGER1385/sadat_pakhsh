@@ -16,5 +16,16 @@ with sync_playwright() as p:
   assert page.locator('body').evaluate('(node)=>node.scrollWidth<=window.innerWidth')
  page.goto(BASE+'/wholesale-buying');expect(page).to_have_url(BASE+'/wholesale')
  assert not errors,errors
+ desktop=browser.new_page(viewport={'width':1440,'height':900})
+ desktop.goto(BASE+'/')
+ expect(desktop.locator('.category-mega')).not_to_be_visible()
+ desktop.locator('[data-category-toggle]').hover()
+ expect(desktop.locator('.category-mega')).to_be_visible()
+ expect(desktop.locator('.category-mega .category-parent').first).to_have_text('نایلکس')
+ for size in ['۲۵ × ۳۵','۳۰ × ۴۰','۳۷ × ۴۷','۴۵ × ۵۵','۴۴ × ۶۵','۶۵ × ۸۰']:
+  expect(desktop.locator('.category-mega')).to_contain_text(size)
+ page.goto(BASE+'/');page.locator('[data-menu]').click();page.locator('[data-category-toggle]').click()
+ expect(page.locator('.category-mega')).to_be_visible()
+ assert page.locator('body').evaluate('(node)=>node.scrollWidth<=window.innerWidth')
  browser.close()
-print('PASS mobile landing pages, canonical/schema, internal CTA and wholesale redirect')
+print('PASS landing SEO, wholesale redirect, and responsive category mega-menu')

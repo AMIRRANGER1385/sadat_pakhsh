@@ -49,7 +49,7 @@ try {
  if($path==='/install') {require __DIR__.'/install.php';exit;}
  // A dedicated marker allows a useful setup page without executing schema on normal requests.
  if(!is_file($storage.'/installed.lock')){http_response_code(503);exit('<html lang="fa" dir="rtl"><h1>نصب اولیه لازم است</h1><p>راهنمای نصب را دنبال کنید و سپس <a href="/install">نصب فروشگاه</a> را باز کنید.</p></html>');}
- require_once __DIR__.'/content.php';require_once __DIR__.'/reviews.php';require_once __DIR__.'/product-features.php';require_once __DIR__.'/product-seo.php';require_once __DIR__.'/analytics.php';require_once __DIR__.'/two-factor.php';require_once __DIR__.'/slug-redirects.php';ensure_content_schema();ensure_review_schema();ensure_product_feature_schema();ensure_product_seo_schema();ensure_analytics_schema();ensure_two_factor_schema();ensure_slug_redirect_schema();
+ require_once __DIR__.'/categories.php';require_once __DIR__.'/content.php';require_once __DIR__.'/reviews.php';require_once __DIR__.'/product-features.php';require_once __DIR__.'/product-seo.php';require_once __DIR__.'/analytics.php';require_once __DIR__.'/two-factor.php';require_once __DIR__.'/slug-redirects.php';ensure_category_schema();ensure_content_schema();ensure_review_schema();ensure_product_feature_schema();ensure_product_seo_schema();ensure_analytics_schema();ensure_two_factor_schema();ensure_slug_redirect_schema();
  require_once __DIR__.'/product-sales.php';ensure_product_sales_schema();
  require __DIR__.'/actions.php';
  if($_SERVER['REQUEST_METHOD']==='POST'){if((int)($_SERVER['CONTENT_LENGTH']??0)>6*1024*1024)throw new ShopError('درخواست بیش از حد بزرگ است.',413);verify_csrf();handle_action();}
