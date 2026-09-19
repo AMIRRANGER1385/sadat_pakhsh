@@ -21,9 +21,12 @@ def fetch(url):
  try:r=urllib.request.urlopen(url,timeout=20)
  except urllib.error.HTTPError as e:r=e
  return r.code,r.read().decode('utf-8'),r.headers
-code,xml,_=fetch(base+'/sitemap.xml');assert code==200
+code,xml,_=fetch(base+'/sitemaps/categories.xml');assert code==200
 ns={'s':'http://www.sitemaps.org/schemas/sitemap/0.9'}
 urls=[n.text for n in ET.fromstring(xml).findall('s:url/s:loc',ns)]
+for section in ['pages','products','guides','articles']:
+ code,section_xml,_=fetch(base+'/sitemaps/'+section+'.xml');assert code==200
+ urls.extend(n.text for n in ET.fromstring(section_xml).findall('s:url/s:loc',ns))
 assert len(urls)==len(set(urls))
 categories=[url for url in urls if '/categories/' in url];assert len(categories)>=5
 titles=[]
@@ -44,7 +47,7 @@ for url in urls:
   assert str(product['offers']['price']).isdigit()
   assert doc.meta['og:image']==product['image']
   assert 'aggregateRating' not in product
- if url.endswith('/plastic-products'):
+ if url.endswith('/products'):
   assert any(s.get('@type')=='CollectionPage' for s in doc.scripts)
   assert any(s.get('@type')=='BreadcrumbList' for s in doc.scripts)
   assert 'پلاستیک سادات' in body and 'فروش محصولات پلاستیکی' in body

@@ -20,12 +20,12 @@ function wholesale_buying_page(): void {
   </header>
   <section class="panel seo-content">
    <h2>خرید عمده محصولات پلاستیکی از سادات پخش</h2>
-   <p>محصولات عمده در برگهٔ مستقل فروش عمده با قیمت عمده نمایش داده می‌شوند. همه می‌توانند بدون ورود یا ثبت‌نام، کالاها را ببینند و به سبد اضافه کنند. محصولات خرده هم برگهٔ جداگانه دارند.</p>
+   <p>محصولات عمده در برگهٔ مستقل فروش عمده با قیمت عمده نمایش داده می‌شوند. همه می‌توانند بدون ورود یا ثبت‌نام، کالاها را ببینند و به سبد اضافه کنند. کالاهای معمولی نیز در برگهٔ «محصولات پلاستیکی» قرار دارند.</p>
    <h2>چه محصولاتی را می‌توان عمده سفارش داد؟</h2>
    <div class="guide-grid"><?php foreach($categories as $category):?><a class="panel seo-category-link" href="<?=h('/wholesale?category='.$category['id'])?>"><strong>خرید عمده <?=h($category['name'])?></strong><span>مدل‌ها، قیمت و موجودی ←</span></a><?php endforeach;?></div>
    <h2>مراحل ثبت سفارش عمده</h2>
    <ol class="buying-steps"><li>دسته و محصول موردنیاز را انتخاب کنید.</li><li>واحد فروش، ویژگی‌ها و حداقل خرید عمده همان کالا را بررسی کنید.</li><li>تعداد موردنیاز را انتخاب و محصول را با قیمت عمدهٔ درج‌شده به سبد اضافه کنید.</li><li>موجودی، هزینه ارسال و مبلغ نهایی را در سبد بررسی و سپس پرداخت کنید.</li></ol>
-   <p><a href="/plastic-products">مشاهده فروشگاه پلاستیک سادات</a> · <a href="/shipping">روش‌های ارسال</a> · <a href="/faq">پرسش‌های متداول</a></p>
+   <p><a href="/products">مشاهده محصولات پلاستیکی</a> · <a href="/shipping">روش‌های ارسال</a> · <a href="/faq">پرسش‌های متداول</a></p>
   </section>
   <section id="wholesale-products" class="seo-content"><div class="section-heading"><div><span class="eyebrow">قیمت عمده فعال</span><h2>محصولات مناسب خرید عمده</h2></div><a href="/wholesale">همه محصولات عمده ←</a></div><div class="product-grid"><?php foreach($products as $product)product_card($product);?></div></section>
   <?php guide_cards(array_slice(array_values(buying_guides()),0,6),'راهنمای خرید عمده و انتخاب محصول');?>

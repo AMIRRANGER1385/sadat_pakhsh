@@ -37,30 +37,32 @@ status, body, _ = fetch('/guides')
 index = Page(); index.feed(body)
 assert status == 200 and index.h1 == 1 and index.canonical == [BASE + '/guides']
 guide_links = sorted(set(link for link in index.links if link.startswith('/guides/')))
-assert len(guide_links) == 6
+assert len(guide_links) >= 13
 for link in guide_links:
     status, body, _ = fetch(link)
     page = Page(); page.feed(body)
-    assert status == 200 and page.h1 == 1 and page.robots == 'index,follow'
+    assert status == 200 and page.h1 == 1 and page.robots.startswith('index,follow')
     assert page.canonical == [BASE + link]
     assert any(item.get('@type') == 'Article' for item in page.schemas)
     assert any(item.get('@type') == 'BreadcrumbList' for item in page.schemas)
-    assert '/wholesale-buying' in page.links or any('/categories/' in item for item in page.links)
-print('PASS six original guides: canonical, Article schema, internal shopping links')
+    assert '/wholesale' in page.links or any('/categories/' in item for item in page.links)
+print('PASS buying guides: canonical, Article schema, internal shopping links')
 
-status, body, _ = fetch('/wholesale-buying')
+status, body, _ = fetch('/wholesale')
 page = Page(); page.feed(body)
-assert status == 200 and page.h1 == 1 and page.robots == 'index,follow'
-assert page.canonical == [BASE + '/wholesale-buying'] and '/wholesale' in page.links
-print('PASS indexed wholesale landing separates commercial content from account request')
+assert status == 200 and page.h1 == 1 and page.robots.startswith('index,follow')
+assert page.canonical == [BASE + '/wholesale'] and '/nylex-manufacturer' in page.links
+print('PASS indexed wholesale landing combines products and commercial content')
 
-status, xml, _ = fetch('/sitemap.xml')
+status, xml, _ = fetch('/sitemaps/pages.xml')
 root = ET.fromstring(xml)
 ns = {'s': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
 locs = [node.text for node in root.findall('s:url/s:loc', ns)]
-assert BASE + '/guides' in locs and BASE + '/wholesale-buying' in locs
+_, guide_xml, _ = fetch('/sitemaps/guides.xml')
+locs += [node.text for node in ET.fromstring(guide_xml).findall('s:url/s:loc', ns)]
+assert BASE + '/guides' in locs and BASE + '/wholesale' in locs and BASE + '/nylex' in locs
 assert all(BASE + link in locs for link in guide_links)
-print('PASS sitemap discovers guides and wholesale landing')
+print('PASS sitemap discovers guides and commercial landing pages')
 
 status, payload, headers = fetch('/api/search?q=' + urllib.parse.quote('کیسه'))
 data = json.loads(payload)
@@ -70,5 +72,5 @@ status, payload, _ = fetch('/api/search?q=x')
 assert status == 200 and json.loads(payload) == {'items': []}
 status, body, _ = fetch('/articles')
 page = Page(); page.feed(body)
-assert status == 200 and page.h1 == 1 and page.robots == 'index,follow'
+assert status == 200 and page.h1 == 1 and page.robots.startswith('index,follow')
 print('PASS product-search JSON and empty articles index')

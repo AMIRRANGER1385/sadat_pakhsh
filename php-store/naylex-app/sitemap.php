@@ -42,8 +42,8 @@ function sitemap_index_xml(array $maps): string {
 
 function sitemap_static_entries(): array {
  return array_map(fn(string $path)=>['path'=>$path],[
-  '/','/products','/plastic-products','/about','/contact','/faq','/privacy','/terms',
-  '/shipping','/returns','/payment-guide','/guides','/articles','/wholesale-buying','/wholesale',
+  '/','/products','/about','/contact','/faq','/privacy','/terms',
+  '/shipping','/returns','/payment-guide','/guides','/articles','/nylex','/nylex-manufacturer','/wholesale',
  ]);
 }
 

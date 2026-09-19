@@ -23,5 +23,7 @@ try {
  expect_sales(linked_wholesale(one('SELECT * FROM ns_products WHERE id=?',[$ids[1]]))===null,'wholesale product does not link back');
  query('UPDATE ns_products SET stock=0 WHERE id=?',[$ids[1]]);expect_sales(linked_wholesale($p)!==null,'out of stock target remains viewable');
  query('UPDATE ns_products SET active=0 WHERE id=?',[$ids[1]]);expect_sales(linked_wholesale($p)===null,'inactive target suppressed');
- expect_sales(product_sales(0)['sale_type']==='retail','legacy products default to retail');
+expect_sales(product_sales(0)['sale_type']==='retail','legacy products default to retail');
+ expect_sales(gregorian_to_jalali(2026,9,19)===[1405,6,28],'Persian price date conversion');
+ $before=latest_price_update();mark_product_price_updated($ids[0]);expect_sales(latest_price_update()>=$before,'price update timestamp recorded');
 } finally {db()->rollBack();}

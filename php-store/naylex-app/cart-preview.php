@@ -3,7 +3,7 @@ declare(strict_types=1);
 function cart_preview_data(): array {
  $items=[];$total=0;
  foreach(cart_lines() as $p){if(!empty($p['missing']))continue;$line=(int)$p['price']*(int)$p['quantity'];$total+=$line;
- $items[]=['id'=>(int)$p['id'],'name'=>$p['name'],'image'=>$p['image'],'description'=>mb_substr($p['description'],0,100),'quantity'=>(int)$p['quantity'],'price'=>(int)$p['price'],'total'=>$line];}
+ $items[]=['id'=>(int)$p['id'],'name'=>$p['name'],'image'=>$p['image'],'description'=>mb_substr($p['description'],0,100),'quantity'=>(int)$p['quantity'],'price'=>(int)$p['price'],'unit'=>$p['unit'],'wholesale'=>is_wholesale_product($p)||(int)$p['quantity']>=(int)$p['minimum'],'total'=>$line];}
  return ['items'=>$items,'count'=>array_sum($_SESSION['cart']??[]),'total'=>$total];
 }
 function cart_preview(): void {?>

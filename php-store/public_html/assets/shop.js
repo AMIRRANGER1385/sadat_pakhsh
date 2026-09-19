@@ -19,7 +19,7 @@ function renderCart(data){
   const price=document.createElement('p');price.textContent=`${cartNumber.format(item.quantity)} × ${cartNumber.format(item.price)} تومان`;
   body.append(title,desc,price);row.append(img,body);list.append(row);
  });
- document.querySelectorAll('[data-quantity-control]').forEach(form=>{const id=Number(form.querySelector('[name=id]').value);const qty=data.items.find(item=>item.id===id)?.quantity||0;form.dataset.qty=qty;const first=form.querySelector('[data-first-add]');if(first){first.hidden=qty>0;first.disabled=Number(form.dataset.max)===0;form.querySelector('.quantity-stepper').hidden=qty===0;}form.querySelector('[data-product-count]').textContent=cartNumber.format(qty);form.querySelector('[data-minus]').disabled=qty===0;form.querySelector('[data-plus]').disabled=qty>=Number(form.dataset.max);});
+ document.querySelectorAll('[data-quantity-control]').forEach(form=>{const id=Number(form.querySelector('[name=id]').value);const qty=data.items.find(item=>item.id===id)?.quantity||0;form.dataset.qty=qty;const input=form.querySelector('[data-quantity-input]');if(input)input.value=Math.max(1,qty);const item=data.items.find(item=>item.id===id);const price=form.querySelector('[data-current-price]');if(price&&item)price.textContent=`${item.wholesale?'قیمت عمده':'قیمت خرده'} هر ${item.unit||'واحد'}: ${cartNumber.format(item.price)} تومان`;const first=form.querySelector('[data-first-add]');if(first){first.hidden=qty>0;first.disabled=Number(form.dataset.max)===0;form.querySelector('.quantity-stepper').hidden=qty===0;}form.querySelector('[data-product-count]').textContent=cartNumber.format(qty);form.querySelector('[data-minus]').disabled=qty===0;form.querySelector('[data-plus]').disabled=qty>=Number(form.dataset.max);});
 
 }
 const initialCart=document.getElementById('cart-initial');if(initialCart)renderCart(JSON.parse(initialCart.textContent));
@@ -33,7 +33,7 @@ document.addEventListener('submit',async event=>{
  form.setAttribute('aria-busy','true');
  try{const response=await fetch(form.action,{method:'POST',body,headers:{Accept:'application/json'},credentials:'same-origin'});const data=await response.json();if(!response.ok)throw new Error(data.error||'تغییر تعداد انجام نشد.');renderCart(data);if(location.pathname==='/cart')location.reload();}
  catch(error){notice.textContent=error.message||'ارتباط قطع شد؛ صفحه را تازه کنید و سبد را بررسی کنید.';}
- finally{cartBusy=false;form.removeAttribute('aria-busy');document.querySelectorAll('[data-quantity-control]').forEach(f=>{const first=f.querySelector('[data-first-add]');if(first)first.disabled=Number(f.dataset.max)===0;f.querySelector('[data-minus]').disabled=Number(f.dataset.qty)===0;f.querySelector('[data-plus]').disabled=Number(f.dataset.qty)>=Number(f.dataset.max);});}
+ finally{cartBusy=false;form.removeAttribute('aria-busy');document.querySelectorAll('[data-quantity-control]').forEach(f=>{const first=f.querySelector('[data-first-add]');if(first)first.disabled=Number(f.dataset.max)===0;f.querySelector('[data-minus]').disabled=Number(f.dataset.qty)===0;f.querySelector('[data-plus]').disabled=Number(f.dataset.qty)>=Number(f.dataset.max);const set=f.querySelector('[value=cart_set]');if(set)set.disabled=Number(f.dataset.max)===0;});}
 });
 
 const cartWrap=document.querySelector('.cart-preview-wrap');const cartToggle=document.querySelector('.cart-preview-toggle');
@@ -71,3 +71,19 @@ const newProductForm=document.querySelector('.product-form input[name="id"][valu
 if(newProductForm){const minimum=newProductForm.querySelector('[name="minimum"]');if(minimum&&minimum.value==='50')minimum.value='100';newProductForm.querySelectorAll('label,p').forEach(element=>{for(const node of element.childNodes)if(node.nodeType===Node.TEXT_NODE)node.textContent=node.textContent.replaceAll('۵۰','۱۰۰');});}
 const customerHelp=document.querySelector('.footer-main>div:nth-child(3)');
 if(customerHelp){for(const [href,label] of [['/terms','قوانین و مقررات'],['/returns','شرایط مرجوعی'],['/payment-guide','راهنمای پرداخت']]){if(!customerHelp.querySelector(`a[href="${href}"]`)){const link=document.createElement('a');link.href=href;link.textContent=label;customerHelp.append(link);}}}
+
+function enableTableOfContents(toc){
+ if(toc.dataset.ready)return;toc.dataset.ready='true';const list=toc.querySelector('ol');if(!list)return;
+ let title=toc.querySelector(':scope > strong');if(!title){title=document.createElement('strong');title.textContent='فهرست مطالب';toc.prepend(title);}
+ const button=document.createElement('button');button.type='button';button.className='toc-toggle';button.textContent='بستن فهرست';button.setAttribute('aria-expanded','true');button.setAttribute('aria-label','باز و بسته کردن فهرست مطالب');
+ title.insertAdjacentElement('afterend',button);button.addEventListener('click',()=>{const open=!list.hidden;list.hidden=open;button.setAttribute('aria-expanded',String(!open));button.textContent=open?'نمایش فهرست':'بستن فهرست';});
+ toc.querySelectorAll('a[href^="#"]').forEach(link=>link.addEventListener('click',()=>{const target=document.getElementById(decodeURIComponent(link.hash.slice(1)));if(!target)return;target.setAttribute('tabindex','-1');setTimeout(()=>target.focus({preventScroll:true}),350);}));
+}
+document.querySelectorAll('[data-toc],article.prose,.guide-article').forEach(root=>{
+ if(root.querySelector(':scope > .guide-toc')){enableTableOfContents(root.querySelector(':scope > .guide-toc'));return;}
+ const headings=[...root.querySelectorAll('h2,h3')].filter(heading=>!heading.closest('.product-card,.article-card,.guide-card,.wholesale-recommendation,.filter-panel,.site-toc')&&heading.textContent.trim());
+ if(headings.length<2)return;
+ const toc=document.createElement('nav');toc.className='guide-toc site-toc';toc.setAttribute('aria-label','فهرست مطالب');const title=document.createElement('strong');title.textContent='فهرست مطالب';const list=document.createElement('ol');
+ headings.forEach((heading,index)=>{if(!heading.id)heading.id=`content-section-${index+1}`;const item=document.createElement('li');item.className=`toc-level-${heading.tagName==='H3'?3:2}`;const link=document.createElement('a');link.href=`#${heading.id}`;link.textContent=heading.textContent.trim();item.append(link);list.append(item);});
+ toc.append(title,list);const direct=[...root.children].find(child=>child.matches('.detail-grid,section,h2'));if(direct)root.insertBefore(toc,direct);else root.prepend(toc);enableTableOfContents(toc);
+});
