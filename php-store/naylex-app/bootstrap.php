@@ -28,7 +28,7 @@ header_remove('X-Powered-By');
 header('Content-Type: text/html; charset=utf-8');
 header('X-Content-Type-Options: nosniff');header('X-Frame-Options: DENY');header('Referrer-Policy: strict-origin-when-cross-origin');
 header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
-header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-$nonce'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://sandbox.zarinpal.com https://www.zarinpal.com; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-$nonce'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://trustseal.enamad.ir; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://sandbox.zarinpal.com https://www.zarinpal.com; frame-ancestors 'none'");
 if($secure)header('Strict-Transport-Security: max-age=31536000');
 header('Cache-Control: private, no-store');
 $storage=config('storage');
