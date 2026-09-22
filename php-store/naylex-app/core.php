@@ -23,7 +23,7 @@ function phone_input(string $key='phone'): string {$v=digits(text_input($key,11,
 function password_input(string $key): string {$s=$_POST[$key]??'';if(!is_string($s)||mb_strlen($s)<8||strlen($s)>72)throw new ShopError('رمز باید حداقل ۸ کاراکتر و حداکثر ۷۲ بایت باشد.');return $s;}
 function url(string $path='/'): string {return rtrim(config('app_url'),'/').$path;}
 function asset_url(string $name): string {
- if(!in_array($name,['shop.css','shop.js'],true))throw new InvalidArgumentException('Unknown asset');
+ if(!in_array($name,['shop.css','shop.js','home-experience.css','home-experience.js'],true))throw new InvalidArgumentException('Unknown asset');
  static $versions=[];
  $file=dirname(__DIR__).'/public_html/assets/'.$name;
  // Private code and public files can be deployed to different directories.
