@@ -27,7 +27,7 @@
 
 ## ۴. صفحات جدید
 
-- `/nylex`: خرید و قیمت نایلکس
+- `/products`: صفحه موجود، اکنون فروش خرد نایلکس و محصولات پلاستیکی
 - `/nylex-manufacturer`: تولیدکننده نایلکس در تهران
 - `/guides/nylex-price-factors`
 - `/guides/rackabi-nylex-guide`
@@ -46,12 +46,12 @@
 
 ## ۶. نگاشت Keyword به URL
 
-نقشه کامل در `SEO-KEYWORD-MAP-FA.md` ثبت شده است. هدف‌ها از هم جدا هستند: خرید عمومی در `/nylex`، عمده در `/wholesale`، تولید در `/nylex-manufacturer`، نام دقیق کالا در Product و پرسش‌های آموزشی در Guide.
+نقشه کامل در `SEO-KEYWORD-MAP-FA.md` ثبت شده است. هدف‌ها از هم جدا هستند: خرید عمومی در `/products`، عمده در `/wholesale`، تولید در `/nylex-manufacturer`، نام دقیق کالا در Product و پرسش‌های آموزشی در Guide.
 
 ## ۷. Title و H1
 
-- `/nylex`: «خرید نایلکس؛ قیمت عمده و کیلویی» / «خرید نایلکس عمده و خرده»
-- `/wholesale`: «خرید عمده نایلکس و محصولات پلاستیکی» / «محصولات عمده»
+- `/products`: «فروش خرد نایلکس و محصولات پلاستیکی» / «فروش خرد نایلکس و محصولات پلاستیکی»
+- `/wholesale`: «خرید عمده نایلکس | قیمت مستقیم از تولیدکننده» / «خرید عمده نایلکس مستقیم از تولیدکننده»
 - `/nylex-manufacturer`: «تولیدکننده نایلکس در تهران؛ فروش مستقیم» / «تولیدکننده نایلکس و فروش مستقیم»
 - محصول: Title اختصاصی مدیر یا مقدار خودکار؛ H1 همان نام دقیق محصول
 
@@ -153,7 +153,7 @@ Sitemap index شامل صفحات، محصولات، دسته‌ها، راهن�
 3. برای هر محصول، عنوان سئو، توضیحات متا و متن معرفی اختصاصی را با اطلاعات واقعی تکمیل کنید.
 4. در Google Search Console، Property دامنه `sadatpakhsh.ir` را باز کنید.
 5. در بخش Sitemaps، فقط `https://sadatpakhsh.ir/sitemap.xml` را ثبت یا دوباره Submit کنید.
-6. با URL Inspection این سه URL را بررسی و Request Indexing کنید: `/nylex`، `/wholesale` و `/nylex-manufacturer`.
+6. با URL Inspection این سه URL را بررسی و Request Indexing کنید: `/products`، `/wholesale` و `/nylex-manufacturer`.
 7. URL قدیمی `/wholesale-buying` را Inspect کنید و مطمئن شوید Google پاسخ 301 و مقصد `/wholesale` را می‌بیند.
 8. گزارش Page indexing را پس از Crawl بررسی کنید؛ فیلترها و صفحات حساب باید Excluded by noindex باشند.
 9. گزارش Merchant listings و Product snippets را برای خطاهای Product schema بررسی کنید.

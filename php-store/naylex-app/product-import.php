@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/product-catalog-exchange.php';
 function product_import_headers(): array {return ['retail_slug','wholesale_slug','name','category','retail_price','wholesale_price','threshold','retail_stock','wholesale_stock','unit','description','image','featured'];}
+function product_catalog_headers(): array {return ['slug','sale_type','wholesale_slug','name','category','retail_price','wholesale_price','threshold','stock','unit','description','image','featured'];}
 function product_import_xml(string $xml): SimpleXMLElement {
  if(stripos($xml,'<!DOCTYPE')!==false||stripos($xml,'<!ENTITY')!==false)throw new ShopError('ساختار XML فایل مجاز نیست.');
  $old=libxml_use_internal_errors(true);try{$doc=simplexml_load_string($xml,SimpleXMLElement::class,LIBXML_NONET);if($doc===false)throw new ShopError('ساختار فایل اکسل معتبر نیست.');return $doc;}finally{libxml_clear_errors();libxml_use_internal_errors($old);}
@@ -35,11 +37,12 @@ function product_import_rows(string $file,string $extension): array {
  }else throw new ShopError('فقط فایل XLSX یا CSV UTF-8 پذیرفته می‌شود.');
  if(!$rows)throw new ShopError('فایل خالی است.');
  $headers=array_map(fn($s)=>trim((string)$s),array_shift($rows));$headers[0]=preg_replace('/^\xEF\xBB\xBF/','',$headers[0]??'');
- if($headers!==product_import_headers())throw new ShopError('نام یا ترتیب ستون‌ها با قالب متفاوت است. قالب سایت را دانلود کنید.');
+ if($headers!==product_import_headers()&&$headers!==product_catalog_headers())throw new ShopError('نام یا ترتیب ستون‌ها با قالب متفاوت است. قالب سایت را دانلود کنید.');
  $result=[];foreach($rows as $i=>$row){if(!count(array_filter($row,fn($v)=>trim((string)$v)!=='')))continue;if(count($row)!==13)throw new ShopError('تعداد ستون‌های ردیف '.($i+2).' صحیح نیست.');$result[]=array_combine($headers,array_map(fn($v)=>trim((string)$v),$row));}
  if(!$result)throw new ShopError('هیچ محصولی در فایل وجود ندارد.');return $result;
 }
 function product_import_validate(array $rows,string $mode,bool $lock=false): array {
+ if(isset($rows[0]['sale_type']))return product_catalog_validate($rows,$mode,$lock);
  if(!in_array($mode,['create','update'],true)||count($rows)>500)throw new ShopError('نوع ورود نامعتبر است.');
  $seen=[];$result=[];
  foreach($rows as $i=>$r){try{
@@ -58,6 +61,7 @@ function product_import_validate(array $rows,string $mode,bool $lock=false): arr
  return $result;
 }
 function product_import_apply(array $rows,string $mode): array {
+ if(isset($rows[0]['sale_type']))return product_catalog_apply($rows,$mode);
  return transaction(function()use($rows,$mode){
   $current=product_import_validate($rows,$mode,true);$created=0;$updated=0;
   foreach($current as $i=>$r){
@@ -87,7 +91,11 @@ function product_import_action(string $action): never {
  flash($result['created'].' محصول جدید و '.$result['updated'].' محصول به‌روز شد. اتصال خرده و عمده برقرار است.');redirect('/admin?tab=products');
 }
 function product_import_page(): void {
- ?><section class="panel form-stack"><h2>ورود گروهی محصولات از اکسل</h2><p>هر ردیف یک کالا است؛ سایت دو محصول خرده و عمده را با قیمت‌های جدا می‌سازد و به هم متصل می‌کند. واحد فروش هر دو محصول در این قالب یکسان است.</p><a class="btn outline" href="/templates/products.xlsx">دانلود قالب اکسل</a><a href="/templates/products.csv">قالب CSV UTF-8</a><p>برگهٔ اول را پر کنید؛ نام ستون‌ها را تغییر ندهید. ردیف نمونه را با کالای خود جایگزین کنید. راهنمای ستون‌ها در برگهٔ دوم اکسل است. حداکثر ۵۰۰ کالا در هر فایل.</p><form method="post" action="/admin" enctype="multipart/form-data" class="form-stack"><?php csrf_field();hidden('action','product_import_preview');?><label>فایل محصولات<input type="file" name="products_file" accept=".xlsx,.csv" required></label><label>روش ورود<select name="import_mode"><option value="create">فقط افزودن؛ شناسهٔ تکراری خطا بدهد</option><option value="update">افزودن یا به‌روزرسانی بر اساس شناسهٔ ثابت</option></select></label><p>به‌روزرسانی، قیمت و موجودی و متن را با مقادیر فایل جایگزین می‌کند؛ ویژگی‌های اختصاصی و سوابق سفارش حفظ می‌شوند. تصویر خالی برای محصول موجود حفظ می‌شود و برای محصول جدید تصویر نمونه می‌گیرد.</p><button class="btn">بررسی فایل و نمایش پیش‌نمایش</button></form></section>
+ $exportCount=(int)query('SELECT COUNT(*) FROM ns_products WHERE active=1')->fetchColumn();
+ ?><section class="panel form-stack"><h2>خروجی محصولات برای Excel</h2><p>هر ردیف فایل، یک محصول خرده یا عمده است. ستون slug شناسه ثابت محصول است؛ برای به‌روزرسانی آن را تغییر ندهید. نام، دسته، قیمت‌ها، موجودی و مشخصات را ویرایش کنید و فایل را با فرمت CSV UTF-8 ذخیره و در پایین همین صفحه با روش «افزودن یا به‌روزرسانی» بارگذاری کنید. حذف ردیف از فایل باعث حذف محصول از سایت نمی‌شود.</p><?php for($exportPage=1;$exportPage<=ceil($exportCount/500);$exportPage++):?><a class="btn outline" href="/admin/products-export?page=<?=$exportPage?>">دانلود محصولات برای Excel<?=$exportCount>500?' ـ بخش '.$exportPage:''?></a><?php endfor;?></section><?php
+ ?><section class="panel form-stack"><h2>ورود گروهی محصولات از اکسل</h2><p>هر ردیف یک کالا است؛ سایت دو محصول خرده و عمده را با قیمت‌های جدا می‌سازد و به هم متصل می‌کند. واحد فروش هر دو محصول در این قالب یکسان است.</p><a class="btn outline" href="/templates/products.xlsx">دانلود قالب اکسل</a><a href="/templates/products.csv">قالب CSV UTF-8</a><p>برگهٔ اول را پر کنید؛ نام ستون‌ها را تغییر ندهید. ردیف نمونه را با کالای خود جایگزین کنید. راهنمای ستون‌ها در برگهٔ دوم اکسل است. حداکثر ۵۰۰ کالا در هر فایل.</p><form method="post" action="/admin" enctype="multipart/form-data" class="form-stack"><?php csrf_field();hidden('action','product_import_preview');?><label>فایل محصولات<input type="file" name="products_file" accept=".xlsx,.csv" required></label><label>روش ورود<select name="import_mode"><option value="create">فقط افزودن؛ شناسهٔ تکراری خطا بدهد</option><option value="update" selected>افزودن یا به‌روزرسانی بر اساس شناسهٔ ثابت</option></select></label><p>به‌روزرسانی، قیمت و موجودی و متن را با مقادیر فایل جایگزین می‌کند؛ ویژگی‌های اختصاصی و سوابق سفارش حفظ می‌شوند. تصویر خالی برای محصول موجود حفظ می‌شود و برای محصول جدید تصویر نمونه می‌گیرد.</p><button class="btn">بررسی فایل و نمایش پیش‌نمایش</button></form></section>
  <?php $pending=$_SESSION['product_import']??null;if(!$pending)return;?>
+ <?php if(isset($pending['rows'][0]['sale_type'])):?>
+ <section class="panel"><h2>پیش‌نمایش <?=money(count($pending['rows']))?> محصول</h2><p>هنوز تغییری ذخیره نشده است. شناسه‌های موجود به‌روزرسانی و شناسه‌های تازه افزوده می‌شوند.</p><div class="table-scroll"><table><thead><tr><th>محصول</th><th>نوع</th><th>شناسه</th><th>قیمت خرده / عمده</th><th>موجودی</th></tr></thead><tbody><?php foreach($pending['rows'] as $r):?><tr><td><?=h($r['name'])?></td><td><?=h($r['sale_type'])?></td><td><?=h($r['slug'])?></td><td><?=money($r['retail_price'])?> / <?=money($r['wholesale_price'])?></td><td><?=money($r['stock'])?></td></tr><?php endforeach;?></tbody></table></div><?php action_start('product_import_commit','','/admin');hidden('import_token',$pending['token']);?><button class="btn">تأیید و ذخیره محصولات</button></form></section><?php return;endif;?>
  <section class="panel"><h2>پیش‌نمایش <?=money(count($pending['rows']))?> کالا</h2><p>هنوز هیچ محصولی ذخیره نشده است. هر ردیف شامل دو محصول متصل می‌شود.</p><div class="table-scroll"><table><thead><tr><th>کالا</th><th>شناسه خرده / عمده</th><th>قیمت خرده / عمده</th><th>تعداد پیشنهاد</th></tr></thead><tbody><?php foreach($pending['rows'] as $r):?><tr><td><?=h($r['name'])?></td><td><?=h($r['retail_slug'])?> / <?=h($r['wholesale_slug'])?></td><td><?=money($r['retail_price'])?> / <?=money($r['wholesale_price'])?></td><td><?=money($r['threshold'])?> <?=h($r['unit'])?></td></tr><?php endforeach;?></tbody></table></div><?php action_start('product_import_commit','','/admin');hidden('import_token',$pending['token']);?><button class="btn">تأیید و ذخیرهٔ همهٔ محصولات</button></form></section><?php
 }

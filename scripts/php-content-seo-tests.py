@@ -60,7 +60,7 @@ ns = {'s': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
 locs = [node.text for node in root.findall('s:url/s:loc', ns)]
 _, guide_xml, _ = fetch('/sitemaps/guides.xml')
 locs += [node.text for node in ET.fromstring(guide_xml).findall('s:url/s:loc', ns)]
-assert BASE + '/guides' in locs and BASE + '/wholesale' in locs and BASE + '/nylex' in locs
+assert BASE + '/guides' in locs and BASE + '/wholesale' in locs and BASE + '/products' in locs and BASE + '/nylex' not in locs
 assert all(BASE + link in locs for link in guide_links)
 print('PASS sitemap discovers guides and commercial landing pages')
 

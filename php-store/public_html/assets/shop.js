@@ -56,8 +56,8 @@ function clearSuggestions(){clearTimeout(searchTimer);searchController?.abort();
 function productSuggestion(item){
  const link=document.createElement('a');link.href=item.url;link.className='search-suggestion';
  const image=document.createElement('img');image.src=item.image;image.alt=item.name;image.width=52;image.height=52;image.loading='lazy';
- const info=document.createElement('span');const title=document.createElement('strong');title.textContent=item.name;const category=document.createElement('small');category.textContent=item.category;
- const price=document.createElement('b');price.textContent=`${cartNumber.format(item.price)} تومان`;const unit=document.createElement('small');unit.textContent=`هر ${item.unit}`;
+ const info=document.createElement('span');const title=document.createElement('strong');title.textContent=item.name;const category=document.createElement('small');category.textContent=`${item.category} · ${item.sale_label}`;
+ const price=document.createElement('b');price.textContent=`${cartNumber.format(item.price)} تومان`;const unit=document.createElement('small');unit.textContent=item.wholesale_price?`عمده: ${cartNumber.format(item.wholesale_price)} تومان از ${cartNumber.format(item.minimum)} ${item.unit}`:`هر ${item.unit}`;
  info.append(title,category);const amount=document.createElement('span');amount.className='search-suggestion-price';amount.append(price,unit);link.append(image,info,amount);return link;
 }
 searchInput?.addEventListener('input',()=>{
