@@ -51,7 +51,7 @@ function support_message_action(): never {
 }
 
 function support_page(): void {
- $u=current_user();if(!$u)redirect('/login');
+ $u=current_user();if(!$u){$_SESSION['after_login']='/support';redirect('/login');}
  page_header('گفت‌وگوی پشتیبانی','پیام امن با پشتیبانی نایلکس سادات.',false,url('/support'));
  $messages=support_messages((int)$u['id']);
  ?><div class="container page-content support-page"><div class="panel support-chat"><div class="section-heading"><div><span class="eyebrow">پشتیبانی نایلکس سادات</span><h1>گفت‌وگوی پشتیبانی</h1></div><a class="btn outline" href="/account">حساب کاربری</a></div><div class="chat-thread"><?php if(!$messages):?><p class="muted">پیامی ثبت نشده است. سوال خود را بنویسید تا مدیر پاسخ بدهد.</p><?php endif;foreach($messages as$m):?><article class="chat-message <?=$m['sender_role']==='ADMIN'?'from-admin':'from-user'?>"><strong><?=$m['sender_role']==='ADMIN'?'پشتیبانی':'شما'?></strong><p><?=nl2br(h($m['message']))?></p><time><?=h(substr($m['created_at'],0,16))?></time></article><?php endforeach;?></div><?php action_start('support_message','chat-form','/support');?><textarea name="message" rows="3" maxlength="1500" required placeholder="پیام خود را بنویسید..."></textarea><button class="btn">ارسال پیام</button></form></div></div><?php page_footer();
@@ -67,6 +67,6 @@ function admin_support_panel(): void {
 }
 
 function support_floating_button(): void {
- $u=current_user();$href=$u&&$u['role']==='ADMIN'?'/admin?tab=support':($u?'/support':'/login');$unread=$u&&$u['role']!=='ADMIN'?support_user_unread_count((int)$u['id']):0;
+ $u=current_user();$href=$u&&$u['role']==='ADMIN'?'/admin?tab=support':'/support';$unread=$u&&$u['role']!=='ADMIN'?support_user_unread_count((int)$u['id']):0;
  ?><a class="support-fab" href="<?=h($href)?>" aria-label="چت پشتیبانی"><?=icon('support')?><?php if($unread):?><b><?=money($unread)?></b><?php endif;?><span>پشتیبانی</span></a><?php
 }

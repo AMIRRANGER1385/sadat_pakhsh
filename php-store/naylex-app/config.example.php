@@ -13,7 +13,12 @@ return [
     'allow_install' => false,
     'merchant_id' => '',
     'sandbox' => true,
-    'mail_from' => 'no-reply@example.com',
+    'mail_from' => 'info@sadatpakhsh.ir',
+    'smtp_host' => '',
+    'smtp_port' => 587,
+    'smtp_secure' => 'tls', // tls, ssl, or empty
+    'smtp_user' => '',
+    'smtp_password' => '',
     'sms_provider' => '',
     'sms_api_key' => '',
     'sms_sender' => '',
