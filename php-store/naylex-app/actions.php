@@ -85,9 +85,11 @@ function handle_action(): never {
   }else query('UPDATE ns_users SET username=?,name=?,wholesale_status=? WHERE id=?',[$username,$name,$status,$id]);
   break;
  case 'delete_customer':
-  $id=number_input('id',1,PHP_INT_MAX);$customer=one("SELECT id FROM ns_users WHERE id=? AND role='CUSTOMER'",[$id]);if(!$customer)throw new ShopError('مشتری پیدا نشد.',404);
-  transaction(function()use($id){query('UPDATE ns_orders SET user_id=NULL WHERE user_id=?',[$id]);query('DELETE FROM ns_users WHERE id=? AND role=\'CUSTOMER\'',[$id]);});
+  $id=number_input('id',1,PHP_INT_MAX);$customer=one("SELECT * FROM ns_users WHERE id=? AND role='CUSTOMER'",[$id]);if(!$customer)throw new ShopError('مشتری پیدا نشد.',404);
+  transaction(function()use($id,$customer,$admin){archive_customer($customer,(int)$admin['id']);query('UPDATE ns_orders SET user_id=NULL WHERE user_id=?',[$id]);query('DELETE FROM ns_users WHERE id=? AND role=\'CUSTOMER\'',[$id]);});
   break;
+ case 'restore_customer':restore_trashed_user(number_input('id',1,PHP_INT_MAX));break;
+ case 'purge_customer':delete_trashed_user(number_input('id',1,PHP_INT_MAX));break;
  case 'shipping':query('UPDATE ns_settings SET shipping=?,free_above=? WHERE id=1',[number_input('shipping'),number_input('free_above')]);break;
  case 'company':
   $phone=digits(text_input('company_phone',0,25));if($phone&&!preg_match('/^\+?[0-9 ()-]{7,25}$/',$phone))throw new ShopError('تلفن شرکت نامعتبر است.');$email=text_input('company_email',0,150);if($email&&!filter_var($email,FILTER_VALIDATE_EMAIL))throw new ShopError('ایمیل نامعتبر است.');$postal=digits(text_input('company_postal_code',0,10));if($postal&&!preg_match('/^\d{10}$/',$postal))throw new ShopError('کد پستی باید ۱۰ رقم باشد.');
@@ -116,5 +118,5 @@ function handle_action(): never {
  case 'clear_audit_log':query('DELETE FROM ns_admin_audit');break;
  default:throw new ShopError('عملیات پیدا نشد.',404);
  }
- audit_admin(strtoupper($action),(string)($_POST['id']??''));$tab=['delete_product'=>'products','category'=>'categories','delete_category'=>'categories','customer'=>'customers','delete_customer'=>'customers','shipping'=>'shipping','company'=>'company','order'=>'orders','order_update'=>'orders','delete_order'=>'orders','verify_order'=>'orders','delete_article'=>'articles','review_moderate'=>'reviews','review_delete'=>'reviews','delete_support_thread'=>'support','clear_analytics'=>'analytics','delete_login_event'=>'history','clear_login_history'=>'history','delete_audit_log'=>'audit','clear_audit_log'=>'audit'][$action]??'dashboard';flash('تغییرات ذخیره شد.');redirect('/admin?tab='.$tab);
+ audit_admin(strtoupper($action),(string)($_POST['id']??''));$tab=['delete_product'=>'products','category'=>'categories','delete_category'=>'categories','customer'=>'customers','delete_customer'=>'trash','restore_customer'=>'trash','purge_customer'=>'trash','shipping'=>'shipping','company'=>'company','order'=>'orders','order_update'=>'orders','delete_order'=>'orders','verify_order'=>'orders','delete_article'=>'articles','review_moderate'=>'reviews','review_delete'=>'reviews','delete_support_thread'=>'support','clear_analytics'=>'analytics','delete_login_event'=>'history','clear_login_history'=>'history','delete_audit_log'=>'audit','clear_audit_log'=>'audit'][$action]??'dashboard';flash('تغییرات ذخیره شد.');redirect('/admin?tab='.$tab);
 }
