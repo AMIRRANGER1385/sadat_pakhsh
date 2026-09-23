@@ -41,7 +41,7 @@ if(!session_start()){http_response_code(503);exit('Session storage unavailable.'
 expire_cart_if_stale(time());
 $path=rawurldecode(parse_url($_SERVER['REQUEST_URI']??'/',PHP_URL_PATH)?:'/');
 // Also mark redirects and error responses on private routes, not only rendered pages.
-if(preg_match('#^/(?:admin(?:-2fa)?|account|login|register|cart|checkout|track|forgot-password|wholesale-panel|install|api)(?:/|$)#',$path))header('X-Robots-Tag: noindex, nofollow');
+if(preg_match('#^/(?:admin(?:-2fa)?|account|login|register|cart|checkout|track|support|forgot-password|wholesale-panel|install|api)(?:/|$)#',$path))header('X-Robots-Tag: noindex, nofollow');
 try {
  require __DIR__.'/cart-preview.php';require __DIR__.'/payment.php';require __DIR__.'/uploads.php';
  if($path==='/api/search') {ensure_product_sales_schema();require __DIR__.'/search.php';serve_product_search();}
@@ -49,7 +49,7 @@ try {
  if($path==='/install') {require __DIR__.'/install.php';exit;}
  // A dedicated marker allows a useful setup page without executing schema on normal requests.
  if(!is_file($storage.'/installed.lock')){http_response_code(503);exit('<html lang="fa" dir="rtl"><h1>نصب اولیه لازم است</h1><p>راهنمای نصب را دنبال کنید و سپس <a href="/install">نصب فروشگاه</a> را باز کنید.</p></html>');}
- require_once __DIR__.'/categories.php';require_once __DIR__.'/content.php';require_once __DIR__.'/reviews.php';require_once __DIR__.'/product-features.php';require_once __DIR__.'/product-seo.php';require_once __DIR__.'/analytics.php';require_once __DIR__.'/two-factor.php';require_once __DIR__.'/slug-redirects.php';ensure_category_schema();ensure_content_schema();ensure_review_schema();ensure_product_feature_schema();ensure_product_seo_schema();ensure_analytics_schema();ensure_two_factor_schema();ensure_slug_redirect_schema();
+ require_once __DIR__.'/categories.php';require_once __DIR__.'/content.php';require_once __DIR__.'/reviews.php';require_once __DIR__.'/product-features.php';require_once __DIR__.'/product-seo.php';require_once __DIR__.'/analytics.php';require_once __DIR__.'/two-factor.php';require_once __DIR__.'/slug-redirects.php';require_once __DIR__.'/support-chat.php';require_once __DIR__.'/account-recovery.php';ensure_category_schema();ensure_content_schema();ensure_review_schema();ensure_product_feature_schema();ensure_product_seo_schema();ensure_analytics_schema();ensure_two_factor_schema();ensure_slug_redirect_schema();ensure_support_schema();
  require_once __DIR__.'/product-sales.php';ensure_product_sales_schema();
  if($path==='/admin/products-export'){if(!in_array($_SERVER['REQUEST_METHOD'],['GET','HEAD'],true))throw new ShopError('روش درخواست مجاز نیست.',405);require_once __DIR__.'/product-import.php';product_catalog_download();}
  require __DIR__.'/actions.php';

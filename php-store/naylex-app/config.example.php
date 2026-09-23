@@ -13,6 +13,10 @@ return [
     'allow_install' => false,
     'merchant_id' => '',
     'sandbox' => true,
+    'mail_from' => 'no-reply@example.com',
+    'sms_provider' => '',
+    'sms_api_key' => '',
+    'sms_sender' => '',
     'reservation_minutes' => 30,
     'storage' => __DIR__ . '/storage',
 ];

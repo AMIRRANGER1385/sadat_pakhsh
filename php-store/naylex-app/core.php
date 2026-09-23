@@ -17,6 +17,13 @@ function transaction(callable $fn): mixed {db()->beginTransaction();try{$r=$fn()
 function h(mixed $s): string {return htmlspecialchars((string)$s,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
 function money(int|float|string $n): string {return strtr(number_format((float)$n),['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹']);}
 function digits(string $s): string {return strtr($s,['۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9','٠'=>'0','١'=>'1','٢'=>'2','٣'=>'3','٤'=>'4','٥'=>'5','٦'=>'6','٧'=>'7','٨'=>'8','٩'=>'9']);}
+function auth_identifier(string $value): string {
+ $value=trim(digits($value));
+ return str_contains($value,'@')?mb_strtolower($value):$value;
+}
+function is_phone_identifier(string $value): bool {return preg_match('/^09\d{9}$/',auth_identifier($value))===1;}
+function is_email_identifier(string $value): bool {return filter_var(auth_identifier($value),FILTER_VALIDATE_EMAIL)!==false;}
+function valid_auth_identifier(string $value): bool {return is_phone_identifier($value)||is_email_identifier($value);}
 function text_input(string $key,int $min=0,int $max=200,?array $data=null): string {$v=($data??$_POST)[$key]??'';if(!is_string($v))throw new ShopError('مقدار متنی نامعتبر است.');$v=trim($v);if(mb_strlen($v)<$min||mb_strlen($v)>$max)throw new ShopError('طول یکی از فیلدها نامعتبر است.');return $v;}
 function number_input(string $key,int $min=0,int $max=100000000,?array $data=null): int {$v=($data??$_POST)[$key]??null;if(!is_scalar($v)||!preg_match('/^\d+$/',digits((string)$v)))throw new ShopError('عدد معتبر وارد کنید.');$n=(int)digits((string)$v);if($n<$min||$n>$max)throw new ShopError('عدد خارج از محدوده مجاز است.');return $n;}
 function phone_input(string $key='phone'): string {$v=digits(text_input($key,11,11));if(!preg_match('/^09\d{9}$/',$v))throw new ShopError('شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.');return $v;}
@@ -55,6 +62,7 @@ function current_user(): ?array {
 }
 function admin_user(): array {$u=current_user();if(!$u||$u['role']!=='ADMIN')throw new ShopError('دسترسی فقط برای مدیر مجاز است.',403);return $u;}
 function login_account(string $identifier): ?array {
+ $identifier=auth_identifier($identifier);
  $user=one('SELECT * FROM ns_users WHERE username=?',[$identifier]);
  if($user)return $user;
  // Display names are not unique. Never guess between accounts with the same name.
