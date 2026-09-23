@@ -73,6 +73,21 @@ function handle_action(): never {
  case 'delete_product':query('UPDATE ns_products SET active=0,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?',[number_input('id',1,PHP_INT_MAX)]);break;
  case 'category':$id=number_input('id',0,PHP_INT_MAX);$name=text_input('name',2,120);$slug=text_input('slug',2,120);if(!preg_match('/^[a-z0-9-]+$/',$slug))throw new ShopError('شناسه دسته فقط حروف کوچک انگلیسی، عدد و خط تیره باشد.');$parent=number_input('parent_id',0,PHP_INT_MAX);$sort=number_input('sort_order',0,10000);if($parent&&($parent===$id||!one('SELECT id FROM ns_categories WHERE id=? AND parent_id IS NULL',[$parent])))throw new ShopError('دسته والد نامعتبر است.');if(one('SELECT id FROM ns_categories WHERE (name=? OR slug=?) AND id<>?',[$name,$slug,$id]))throw new ShopError('نام یا شناسه این دسته قبلاً استفاده شده است.');if($id)query('UPDATE ns_categories SET name=?,slug=?,parent_id=?,sort_order=? WHERE id=?',[$name,$slug,$parent?:null,$sort,$id]);else query('INSERT INTO ns_categories(name,slug,parent_id,sort_order) VALUES (?,?,?,?)',[$name,$slug,$parent?:null,$sort]);break;
  case 'delete_category':$id=number_input('id',1,PHP_INT_MAX);if(one('SELECT id FROM ns_products WHERE category_id=? LIMIT 1',[$id]))throw new ShopError('ابتدا محصولات این دسته‌بندی را منتقل کنید.');if(one('SELECT id FROM ns_categories WHERE parent_id=? LIMIT 1',[$id]))throw new ShopError('ابتدا زیردسته‌های این دسته را منتقل یا حذف کنید.');query('DELETE FROM ns_categories WHERE id=?',[$id]);break;
+ case 'customer':
+  $id=number_input('id',1,PHP_INT_MAX);$customer=one("SELECT * FROM ns_users WHERE id=? AND role='CUSTOMER'",[$id]);if(!$customer)throw new ShopError('مشتری پیدا نشد.',404);
+  $name=text_input('name',3,120);$username=auth_identifier(text_input('username',3,150));if(!valid_auth_identifier($username))throw new ShopError('شماره موبایل یا ایمیل مشتری معتبر نیست.');
+  if(one('SELECT id FROM ns_users WHERE username=? AND id<>?',[$username,$id]))throw new ShopError('این شماره موبایل یا ایمیل برای حساب دیگری ثبت شده است.');
+  $status=text_input('wholesale_status',0,20);if(!in_array($status,['NONE','REQUESTED','APPROVED','REJECTED'],true))$status='NONE';
+  $newPassword=trim((string)($_POST['new_password']??''));
+  if($newPassword!==''){
+   if(mb_strlen($newPassword)<8||strlen($newPassword)>72)throw new ShopError('رمز جدید باید حداقل ۸ کاراکتر باشد.');
+   query('UPDATE ns_users SET username=?,name=?,wholesale_status=?,password=?,session_version=session_version+1 WHERE id=?',[$username,$name,$status,password_hash($newPassword,PASSWORD_BCRYPT,['cost'=>12]),$id]);
+  }else query('UPDATE ns_users SET username=?,name=?,wholesale_status=? WHERE id=?',[$username,$name,$status,$id]);
+  break;
+ case 'delete_customer':
+  $id=number_input('id',1,PHP_INT_MAX);$customer=one("SELECT id FROM ns_users WHERE id=? AND role='CUSTOMER'",[$id]);if(!$customer)throw new ShopError('مشتری پیدا نشد.',404);
+  transaction(function()use($id){query('UPDATE ns_orders SET user_id=NULL WHERE user_id=?',[$id]);query('DELETE FROM ns_users WHERE id=? AND role=\'CUSTOMER\'',[$id]);});
+  break;
  case 'shipping':query('UPDATE ns_settings SET shipping=?,free_above=? WHERE id=1',[number_input('shipping'),number_input('free_above')]);break;
  case 'company':
   $phone=digits(text_input('company_phone',0,25));if($phone&&!preg_match('/^\+?[0-9 ()-]{7,25}$/',$phone))throw new ShopError('تلفن شرکت نامعتبر است.');$email=text_input('company_email',0,150);if($email&&!filter_var($email,FILTER_VALIDATE_EMAIL))throw new ShopError('ایمیل نامعتبر است.');$postal=digits(text_input('company_postal_code',0,10));if($postal&&!preg_match('/^\d{10}$/',$postal))throw new ShopError('کد پستی باید ۱۰ رقم باشد.');
@@ -81,10 +96,25 @@ function handle_action(): never {
  case 'order':
   $id=number_input('id',1,PHP_INT_MAX);$status=text_input('status');
   transaction(function()use($id,$status){$o=one('SELECT * FROM ns_orders WHERE id=? FOR UPDATE',[$id]);if(!$o)throw new ShopError('سفارش یافت نشد.');$allowed=['PAID'=>['SHIPPED'],'SHIPPED'=>['DELIVERED'],'PENDING'=>['CANCELLED']];if(!in_array($status,$allowed[$o['status']]??[],true))throw new ShopError('تغییر وضعیت مجاز نیست.');if($status==='CANCELLED'&&$o['authority'])throw new ShopError('سفارش دارای authority باید ابتدا در درگاه بررسی شود.');query('UPDATE ns_orders SET status=? WHERE id=?',[$status,$id]);if($status==='CANCELLED')foreach(all('SELECT * FROM ns_order_items WHERE order_id=?',[$id])as$i)query('UPDATE ns_products SET stock=stock+?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?',[$i['quantity'],$i['product_id']]);});break;
+ case 'order_update':
+  $id=number_input('id',1,PHP_INT_MAX);$status=text_input('status');if(!in_array($status,['PENDING','PAID','SHIPPED','DELIVERED','EXPIRED','PAYMENT_REVIEW','CANCELLED'],true))throw new ShopError('وضعیت سفارش معتبر نیست.');
+  query('UPDATE ns_orders SET name=?,phone=?,address=?,status=?,reference=? WHERE id=?',[text_input('name',3,120),phone_input(),text_input('address',10,2000),$status,text_input('reference',0,100),$id]);break;
+ case 'delete_order':
+  $id=number_input('id',1,PHP_INT_MAX);
+  transaction(function()use($id){if(!one('SELECT id FROM ns_orders WHERE id=?',[$id]))throw new ShopError('سفارش پیدا نشد.',404);query('DELETE FROM ns_order_items WHERE order_id=?',[$id]);query('DELETE FROM ns_analytics_events WHERE order_id=?',[$id]);query('DELETE FROM ns_orders WHERE id=?',[$id]);});
+  break;
  case 'verify_order':$id=number_input('id',1,PHP_INT_MAX);verify_order_payment($id);break;
  case 'review_moderate':$id=number_input('id',1,PHP_INT_MAX);$approved=number_input('approved',0,1);query('UPDATE ns_reviews SET approved=? WHERE id=?',[$approved,$id]);break;
  case 'review_delete':query('DELETE FROM ns_reviews WHERE id=?',[number_input('id',1,PHP_INT_MAX)]);break;
+ case 'delete_support_thread':
+  $id=number_input('id',1,PHP_INT_MAX);if(!one("SELECT id FROM ns_users WHERE id=? AND role='CUSTOMER'",[$id]))throw new ShopError('مشتری پیدا نشد.',404);
+  query('DELETE FROM ns_support_messages WHERE user_id=?',[$id]);break;
+ case 'clear_analytics':query('DELETE FROM ns_analytics_events');break;
+ case 'delete_login_event':query('DELETE FROM ns_login_events WHERE id=?',[number_input('id',1,PHP_INT_MAX)]);break;
+ case 'clear_login_history':query('DELETE FROM ns_login_events');break;
+ case 'delete_audit_log':query('DELETE FROM ns_admin_audit WHERE id=?',[number_input('id',1,PHP_INT_MAX)]);break;
+ case 'clear_audit_log':query('DELETE FROM ns_admin_audit');break;
  default:throw new ShopError('عملیات پیدا نشد.',404);
  }
- audit_admin(strtoupper($action),(string)($_POST['id']??''));$tab=['delete_product'=>'products','category'=>'categories','delete_category'=>'categories','customer'=>'customers','shipping'=>'shipping','company'=>'company','order'=>'orders','verify_order'=>'orders','delete_article'=>'articles','review_moderate'=>'reviews','review_delete'=>'reviews'][$action]??'dashboard';flash('تغییرات ذخیره شد.');redirect('/admin?tab='.$tab);
+ audit_admin(strtoupper($action),(string)($_POST['id']??''));$tab=['delete_product'=>'products','category'=>'categories','delete_category'=>'categories','customer'=>'customers','delete_customer'=>'customers','shipping'=>'shipping','company'=>'company','order'=>'orders','order_update'=>'orders','delete_order'=>'orders','verify_order'=>'orders','delete_article'=>'articles','review_moderate'=>'reviews','review_delete'=>'reviews','delete_support_thread'=>'support','clear_analytics'=>'analytics','delete_login_event'=>'history','clear_login_history'=>'history','delete_audit_log'=>'audit','clear_audit_log'=>'audit'][$action]??'dashboard';flash('تغییرات ذخیره شد.');redirect('/admin?tab='.$tab);
 }
