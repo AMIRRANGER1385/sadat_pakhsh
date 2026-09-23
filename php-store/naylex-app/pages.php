@@ -26,7 +26,7 @@ function render_route(string $path): void {
  if($path==='/wholesale'){catalog_page('wholesale');return;}
  if($path==='/wholesale-panel'){redirect('/wholesale'.($_GET?'?'.http_build_query($_GET):''),302);}
  if($path==='/wholesale-buying'){redirect('/wholesale',301);}
- if($path==='/plastic-products'){redirect('/products',301);}
+ if($path==='/plastic-products'){plastic_sales_page();return;}
  if($path==='/shipping'){shipping_page();return;}
  if(in_array($path,['/terms','/returns','/payment-guide'],true)){legal_page($path);return;}
  if($path==='/robots.txt'){header('Content-Type: text/plain; charset=utf-8');echo "User-agent: *\nAllow: /\nDisallow: /install\nSitemap: ".url('/sitemap.xml');return;}
