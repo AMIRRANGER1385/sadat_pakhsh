@@ -27,12 +27,13 @@ let cartBusy=false;
 document.addEventListener('submit',async event=>{
  const form=event.target;if(!form.matches('[data-quantity-control]'))return;
  event.preventDefault();if(cartBusy||!event.submitter)return;cartBusy=true;
- const body=new FormData(form);body.set('action',event.submitter.value);
+ const action=event.submitter.value;const previousQty=Number(form.dataset.qty)||0;
+ const body=new FormData(form);body.set('action',action);
  document.querySelectorAll('[data-quantity-control] button').forEach(b=>b.disabled=true);
- const notice=form.querySelector('[data-cart-message]');notice.textContent='';
+ const notice=form.querySelector('[data-cart-message]');notice.textContent='';delete notice.dataset.state;
  form.setAttribute('aria-busy','true');
- try{const response=await fetch(form.action,{method:'POST',body,headers:{Accept:'application/json'},credentials:'same-origin'});const data=await response.json();if(!response.ok)throw new Error(data.error||'تغییر تعداد انجام نشد.');renderCart(data);if(location.pathname==='/cart')location.reload();}
- catch(error){notice.textContent=error.message||'ارتباط قطع شد؛ صفحه را تازه کنید و سبد را بررسی کنید.';}
+ try{const response=await fetch(form.action,{method:'POST',body,headers:{Accept:'application/json'},credentials:'same-origin'});const data=await response.json();if(!response.ok)throw new Error(data.error||'تغییر تعداد انجام نشد.');renderCart(data);notice.dataset.state='success';notice.textContent=Number(form.dataset.qty)===0?'محصول از سبد خرید حذف شد.':action==='cart_add'||previousQty===0?'محصول به سبد خرید اضافه شد.':'تعداد محصول در سبد خرید با موفقیت ثبت شد.';if(location.pathname==='/cart')location.reload();}
+ catch(error){notice.dataset.state='error';notice.textContent=error.message||'ارتباط قطع شد؛ صفحه را تازه کنید و سبد را بررسی کنید.';}
  finally{cartBusy=false;form.removeAttribute('aria-busy');document.querySelectorAll('[data-quantity-control]').forEach(f=>{const first=f.querySelector('[data-first-add]');if(first)first.disabled=Number(f.dataset.max)===0;f.querySelector('[data-minus]').disabled=Number(f.dataset.qty)===0;f.querySelector('[data-plus]').disabled=Number(f.dataset.qty)>=Number(f.dataset.max);const set=f.querySelector('[value=cart_set]');if(set)set.disabled=Number(f.dataset.max)===0;});}
 });
 
@@ -47,6 +48,38 @@ document.addEventListener('click',event=>{const wrap=document.querySelector('.na
 document.addEventListener('keydown',event=>{if(event.key==='Escape'){document.querySelector('.nav-category-wrap')?.classList.remove('is-open');categoryToggle?.setAttribute('aria-expanded','false');categoryToggle?.focus();}});
 document.querySelectorAll('[data-confirm]').forEach(button=>button.addEventListener('click',event=>{if(!confirm(button.dataset.confirm))event.preventDefault();}));
 document.querySelectorAll('[data-photo]').forEach(input=>{let previewURL;input.addEventListener('change',()=>{const file=input.files[0];if(!file)return;if(file.size>5*1024*1024||!['image/jpeg','image/png','image/webp'].includes(file.type)){alert('عکس JPEG، PNG یا WebP تا ۵ مگابایت انتخاب کنید.');input.value='';return;}if(previewURL)URL.revokeObjectURL(previewURL);previewURL=URL.createObjectURL(file);input.closest('form').querySelector('[data-preview]').src=previewURL;});});
+
+const heroSlider=document.querySelector('[data-hero-slider]');
+if(heroSlider){
+ const slides=[...heroSlider.querySelectorAll('[data-hero-slide]')];
+ const images=[...heroSlider.querySelectorAll('[data-hero-image]')];
+ const dots=[...heroSlider.querySelectorAll('[data-hero-dot]')];
+ const noteTitle=heroSlider.querySelector('[data-hero-note-title]');
+ const noteText=heroSlider.querySelector('[data-hero-note-text]');
+ const caption=heroSlider.querySelector('[data-hero-caption]');
+ const notes=[
+  ['پرداخت امن','اطلاعات سفارش محافظت می‌شود','✓ پرداخت امن و اطلاعات محافظت‌شده'],
+  ['۲۰ سال سابقه','تجربه واقعی در تولید و عرضه','✓ ۲۰ سال تجربه در تولید محصولات پلاستیکی'],
+  ['رضایت مشتری','پشتیبانی قبل و بعد از خرید','✓ رضایت مشتری و پشتیبانی پاسخ‌گو']
+ ];
+ let active=0;let timer;
+ const show=index=>{
+  active=(index+slides.length)%slides.length;
+  slides.forEach((slide,i)=>slide.classList.toggle('is-active',i===active));
+  images.forEach((image,i)=>image.classList.toggle('is-active',i===active));
+  dots.forEach((dot,i)=>dot.classList.toggle('is-active',i===active));
+  if(noteTitle)noteTitle.textContent=notes[active][0];
+  if(noteText)noteText.textContent=notes[active][1];
+  if(caption)caption.textContent=notes[active][2];
+ };
+ const start=()=>{clearInterval(timer);timer=setInterval(()=>show(active+1),5200);};
+ dots.forEach((dot,i)=>dot.addEventListener('click',()=>{show(i);start();}));
+ heroSlider.querySelector('[data-hero-prev]')?.addEventListener('click',()=>{show(active-1);start();});
+ heroSlider.querySelector('[data-hero-next]')?.addEventListener('click',()=>{show(active+1);start();});
+ heroSlider.addEventListener('mouseenter',()=>clearInterval(timer));
+ heroSlider.addEventListener('mouseleave',start);
+ start();
+}
 
 const searchInput=document.querySelector('[data-product-search]');
 const suggestions=document.querySelector('[data-search-suggestions]');

@@ -51,7 +51,7 @@ print('PASS buying guides: canonical, Article schema, internal shopping links')
 status, body, _ = fetch('/wholesale')
 page = Page(); page.feed(body)
 assert status == 200 and page.h1 == 1 and page.robots.startswith('index,follow')
-assert page.canonical == [BASE + '/wholesale'] and '/nylex-manufacturer' in page.links
+assert page.canonical == [BASE + '/wholesale'] and '/about' in page.links
 print('PASS indexed wholesale landing combines products and commercial content')
 
 status, xml, _ = fetch('/sitemaps/pages.xml')

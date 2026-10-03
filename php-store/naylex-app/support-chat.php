@@ -51,7 +51,11 @@ function support_message_action(): never {
 }
 
 function support_page(): void {
- $u=current_user();if(!$u){$_SESSION['after_login']='/support';redirect('/login');}
+ $u=current_user();if(!$u){
+  page_header('پشتیبانی و مشاوره خرید','تماس با پشتیبانی پیش از خرید و پیگیری سفارش.',false,url('/support'));
+  ?><div class="container page-content"><section class="panel prose"><h1>پشتیبانی و مشاوره خرید</h1><p>برای انتخاب اندازه، مقایسه قیمت یا پیگیری سفارش، بدون ساخت حساب با فروشگاه تماس بگیرید.</p><div class="buy-row"><?=business_phone_link('تماس با پشتیبانی')?><?=business_whatsapp_link()?><a class="btn outline" href="/contact">همه راه‌های تماس</a><a class="btn outline" href="/track">پیگیری سفارش</a></div><h2>گفت‌وگو در حساب کاربری</h2><p>برای نگهداری سابقه پیام‌ها و پاسخ‌های پشتیبانی، وارد حساب خود شوید.</p><a class="btn" href="/login">ورود و مشاهده گفت‌وگو</a></section></div><?php
+  $_SESSION['after_login']='/support';page_footer();return;
+ }
  page_header('گفت‌وگوی پشتیبانی','پیام امن با پشتیبانی نایلکس سادات.',false,url('/support'));
  $messages=support_messages((int)$u['id']);
  ?><div class="container page-content support-page"><div class="panel support-chat"><div class="section-heading"><div><span class="eyebrow">پشتیبانی نایلکس سادات</span><h1>گفت‌وگوی پشتیبانی</h1></div><a class="btn outline" href="/account">حساب کاربری</a></div><div class="chat-thread"><?php if(!$messages):?><p class="muted">پیامی ثبت نشده است. سوال خود را بنویسید تا مدیر پاسخ بدهد.</p><?php endif;foreach($messages as$m):?><article class="chat-message <?=$m['sender_role']==='ADMIN'?'from-admin':'from-user'?>"><strong><?=$m['sender_role']==='ADMIN'?'پشتیبانی':'شما'?></strong><p><?=nl2br(h($m['message']))?></p><time><?=h(substr($m['created_at'],0,16))?></time></article><?php endforeach;?></div><?php action_start('support_message','chat-form','/support');?><textarea name="message" rows="3" maxlength="1500" required placeholder="پیام خود را بنویسید..."></textarea><button class="btn">ارسال پیام</button></form></div></div><?php page_footer();

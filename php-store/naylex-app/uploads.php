@@ -21,10 +21,19 @@ function upload_image(array $file): string {
  }finally{imagedestroy($source);}
 }
 function valid_image(string $path): bool {return (bool)preg_match('#^/products/[a-zA-Z0-9_-]+\.(svg|png|jpg|jpeg|webp)$|^/media\?name=[a-f0-9]{48}\.webp$#',$path);}
+function available_image(string $path): string {
+ if(!valid_image($path))return '';
+ $file=str_starts_with($path,'/media?name=')?config('storage').'/uploads/'.substr($path,12):dirname(__DIR__).'/public_html'.$path;
+ return is_file($file)?$path:'';
+}
+function display_image(string $path): string {return available_image($path)?:'/assets/product-placeholder.svg';}
 function serve_image(): void {
  $name=$_GET['name']??'';if(!is_string($name)||!preg_match('/^[a-f0-9]{48}\.webp$/',$name)){http_response_code(404);return;}
  $file=config('storage').'/uploads/'.$name;if(!is_file($file)){http_response_code(404);return;}
- session_write_close();header('Content-Type: image/webp');header('Cache-Control: public, max-age=31536000, immutable');header('Content-Length: '.filesize($file));header('Content-Disposition: inline; filename="'.$name.'"');readfile($file);
+ if(session_status()===PHP_SESSION_ACTIVE)session_write_close();
+ $etag='"'.$name.'"';header('Content-Type: image/webp');header('Cache-Control: public, max-age=31536000, immutable');header('ETag: '.$etag);header('Content-Disposition: inline; filename="'.$name.'"');
+ if(trim($_SERVER['HTTP_IF_NONE_MATCH']??'')===$etag){http_response_code(304);return;}
+ header('Content-Length: '.filesize($file));if(($_SERVER['REQUEST_METHOD']??'GET')!=='HEAD')readfile($file);
 }
 
 function cleanup_unused_uploads(int $graceSeconds=86400,int $limit=200): array {

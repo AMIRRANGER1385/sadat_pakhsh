@@ -45,7 +45,7 @@ for url in urls:
  if '/products/' in url:
   product=next(s for s in doc.scripts if s.get('@type')=='Product')
   assert str(product['offers']['price']).isdigit()
-  assert doc.meta['og:image']==product['image']
+  if 'image' in product: assert doc.meta['og:image']==product['image']
   assert 'aggregateRating' not in product
  if url.endswith('/products'):
   assert any(s.get('@type')=='CollectionPage' for s in doc.scripts)

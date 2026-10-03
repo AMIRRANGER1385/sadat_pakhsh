@@ -1,6 +1,16 @@
 <?php
 declare(strict_types=1);
 
+function product_import_match(string $slug,string $name,string $type,bool $lock=false): ?array {
+ $sql="SELECT p.*,COALESCE(s.sale_type,'retail') sale_type,s.wholesale_id FROM ns_products p LEFT JOIN ns_product_sales s ON s.product_id=p.id";
+ $old=one($sql.' WHERE p.slug=?'.($lock?' FOR UPDATE':''),[$slug]);
+ if($old)return $old;
+ // Exact name and sale type only; ambiguous names must never overwrite an arbitrary product.
+ $matches=all($sql." WHERE p.name=? AND COALESCE(s.sale_type,'retail')=?".($lock?' FOR UPDATE':''),[$name,$type]);
+ if(count($matches)>1)throw new ShopError('چند محصول با نام یکسان وجود دارد؛ شناسه ثابت محصول را از خروجی اکسل وارد کنید: '.$name);
+ return $matches[0]??null;
+}
+
 // One row per product keeps standalone and linked products lossless on export.
 function product_catalog_export_rows(int $page=1): array {
  if($page<1)throw new ShopError('شماره صفحه نامعتبر است.');
@@ -15,12 +25,13 @@ function product_catalog_csv(array $rows): string {
 function product_catalog_download(): never {
  admin_user();$page=number_input('page',1,1000000,$_GET);
  $rows=product_catalog_export_rows($page);if(!$rows)throw new ShopError('در این بخش محصول فعالی برای خروجی وجود ندارد.',404);
+ if(($_GET['format']??'xlsx')==='xlsx'){require_once __DIR__.'/catalog-xlsx.php';$bytes=product_catalog_xlsx($rows);header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');header('Content-Disposition: attachment; filename="products-'.gmdate('Y-m-d').'-'.$page.'.xlsx"');echo $bytes;exit;}
  header('Content-Type: text/csv; charset=utf-8');header('Content-Disposition: attachment; filename="products-'.gmdate('Y-m-d').'-'.$page.'.csv"');
  echo product_catalog_csv($rows);exit;
 }
 function product_catalog_validate(array $rows,string $mode,bool $lock=false): array {
  if(!in_array($mode,['create','update'],true)||count($rows)>500)throw new ShopError('روش ورود یا تعداد ردیف‌ها معتبر نیست.');
- $slugs=[];$result=[];
+ $slugs=[];$matched=[];$result=[];
  foreach($rows as $i=>$r){try{
   $slug=$r['slug']??'';if(!preg_match('/^[a-z0-9-]{1,120}$/D',$slug))throw new ShopError('شناسه محصول معتبر نیست.');
   if(isset($slugs[$slug]))throw new ShopError('شناسه تکراری در فایل: '.$slug);$slugs[$slug]=true;
@@ -31,7 +42,8 @@ function product_catalog_validate(array $rows,string $mode,bool $lock=false): ar
   foreach(['name'=>[2,170],'category'=>[2,120],'unit'=>[1,30],'description'=>[0,5000]] as $key=>[$min,$max])if(!mb_check_encoding($r[$key],'UTF-8')||mb_strlen($r[$key])<$min||mb_strlen($r[$key])>$max)throw new ShopError('مقدار ستون '.$key.' معتبر نیست.');
   foreach(['retail_price'=>[1,100000000],'wholesale_price'=>[1,100000000],'threshold'=>[1,1000],'stock'=>[0,100000],'featured'=>[0,1]] as $key=>[$min,$max])$r[$key]=number_input($key,$min,$max,$r);
   if($r['image']!==''&&!valid_image($r['image']))throw new ShopError('مسیر تصویر محصول معتبر نیست.');
-  $old=one('SELECT p.*,COALESCE(s.sale_type,\'retail\') sale_type,s.wholesale_id FROM ns_products p LEFT JOIN ns_product_sales s ON s.product_id=p.id WHERE p.slug=?'.($lock?' FOR UPDATE':''),[$slug]);
+  $old=product_import_match($slug,$r['name'],$r['sale_type'],$lock);
+  if($old){if(isset($matched[$old['id']]))throw new ShopError('دو ردیف فایل به یک محصول موجود اشاره می‌کنند.');$matched[$old['id']]=true;}
   if($old){if($mode==='create')throw new ShopError('شناسه از قبل وجود دارد: '.$slug);if(!(int)$old['active'])throw new ShopError('محصول غیرفعال را در مدیریت بررسی کنید.');if($old['sale_type']!==$r['sale_type'])throw new ShopError('تغییر نوع فروش محصول موجود از طریق فایل مجاز نیست.');}
   $r['_existing']=$old;$result[]=$r;
  }catch(ShopError $e){throw new ShopError('ردیف '.($i+2).': '.$e->getMessage());}}

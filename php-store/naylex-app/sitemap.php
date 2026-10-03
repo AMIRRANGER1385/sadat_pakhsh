@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/seo.php';
+require_once __DIR__.'/seo-navigation.php';
 require_once __DIR__.'/articles.php';
 
 function sitemap_escape(string $value): string {
@@ -48,7 +49,6 @@ function sitemap_static_entries(): array {
   ['path'=>'/wholesale','changefreq'=>'daily','priority'=>0.9],
   ['path'=>'/products','changefreq'=>'daily','priority'=>0.9],
   ['path'=>'/plastic-products','changefreq'=>'weekly','priority'=>0.8],
-  ['path'=>'/nylex-manufacturer','changefreq'=>'monthly','priority'=>0.8],
   ['path'=>'/guides','changefreq'=>'weekly','priority'=>0.7],
   ['path'=>'/articles','changefreq'=>'weekly','priority'=>0.7],
   ['path'=>'/about','changefreq'=>'monthly','priority'=>0.6],
@@ -62,11 +62,16 @@ function sitemap_static_entries(): array {
  ];
 }
 
+function sitemap_published_pages(): array {
+ $hasArticles=(bool)one('SELECT id FROM ns_articles WHERE active=1 AND published_at<=UTC_TIMESTAMP() LIMIT 1');
+ return array_values(array_filter(sitemap_static_entries(),fn($entry)=>match($entry['path']){'/articles'=>$hasArticles,'/terms'=>legal_content_ready('terms'),'/returns'=>legal_content_ready('returns'),default=>true}));
+}
+
 function sitemap_product_entries(): array {
  return array_map(function(array $product):array{return [
  'path'=>'/products/'.$product['slug'],
   'lastmod'=>sitemap_lastmod($product['updated_at']),
-  'image'=>$product['image'],
+  'image'=>available_image($product['image'])?:null,
   'image_title'=>$product['name'],
   'changefreq'=>'weekly',
   'priority'=>0.7,
@@ -74,26 +79,26 @@ function sitemap_product_entries(): array {
 }
 
 function sitemap_category_entries(): array {
- $categories=all('SELECT c.id,c.name,MAX(p.updated_at) updated_at FROM ns_categories c JOIN ns_products p ON p.category_id=c.id AND p.active=1 GROUP BY c.id,c.name ORDER BY c.id');
+ $categories=all('SELECT c.id,c.name,MAX(p.updated_at) updated_at FROM ns_categories c JOIN ns_categories child ON (child.id=c.id OR child.parent_id=c.id) JOIN ns_products p ON p.category_id=child.id AND p.active=1 GROUP BY c.id,c.name ORDER BY c.id');
  return array_map(fn(array $category)=>['path'=>category_path($category),'lastmod'=>sitemap_lastmod($category['updated_at']),'changefreq'=>'weekly','priority'=>0.8],$categories);
 }
 
 function sitemap_guide_entries(): array {
- $entries=[];foreach(buying_guides() as $guide)$entries[]=['path'=>guide_path($guide),'lastmod'=>sitemap_lastmod($guide['date_modified'],true),'changefreq'=>'monthly','priority'=>0.6];return $entries;
+ $entries=[];foreach(buying_guides() as $guide)$entries[]=['path'=>guide_path($guide),'lastmod'=>sitemap_lastmod(editorial_lastmod('guide.'.$guide['slug'].'.',$guide['date_modified'])),'changefreq'=>'monthly','priority'=>0.6];return $entries;
 }
 
 function sitemap_article_entries(): array {
  ensure_article_schema();$entries=[];
  foreach(all('SELECT slug,title,image,updated_at FROM ns_articles WHERE active=1 AND published_at<=UTC_TIMESTAMP() ORDER BY id') as $article){
   if(!preg_match('/^[a-z0-9-]+$/',$article['slug']))continue;
-  $entries[]=['path'=>'/articles/'.$article['slug'],'lastmod'=>sitemap_lastmod($article['updated_at']),'image'=>$article['image'],'image_title'=>$article['title'],'changefreq'=>'monthly','priority'=>0.5];
+  $entries[]=['path'=>'/articles/'.$article['slug'],'lastmod'=>sitemap_lastmod($article['updated_at']),'image'=>available_image($article['image'])?:null,'image_title'=>$article['title'],'changefreq'=>'monthly','priority'=>0.5];
  }
  return $entries;
 }
 
 function sitemap_section_entries(string $section): ?array {
  return match($section){
-  'pages'=>sitemap_static_entries(),
+  'pages'=>sitemap_published_pages(),
   'products'=>sitemap_product_entries(),
   'categories'=>sitemap_category_entries(),
   'guides'=>sitemap_guide_entries(),

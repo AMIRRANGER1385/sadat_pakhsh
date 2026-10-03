@@ -31,6 +31,16 @@ header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
 header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-$nonce'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://trustseal.enamad.ir; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://sandbox.zarinpal.com https://www.zarinpal.com; frame-ancestors 'none'");
 if($secure)header('Strict-Transport-Security: max-age=31536000');
 header('Cache-Control: private, no-store');
+$earlyPath=rawurldecode(parse_url($_SERVER['REQUEST_URI']??'/',PHP_URL_PATH)?:'/');
+// Crawlers and image downloads do not need a shopping session or database migrations.
+if($earlyPath==='/robots.txt'&&in_array($_SERVER['REQUEST_METHOD'],['GET','HEAD'],true)){
+ header('Content-Type: text/plain; charset=utf-8');header('Cache-Control: public, max-age=3600');
+ if($_SERVER['REQUEST_METHOD']!=='HEAD')echo "User-agent: *\nAllow: /\nDisallow: /install\nSitemap: ".url('/sitemap.xml')."\n";
+ exit;
+}
+if($earlyPath==='/media'&&in_array($_SERVER['REQUEST_METHOD'],['GET','HEAD'],true)){
+ require_once __DIR__.'/uploads.php';serve_image();exit;
+}
 $storage=config('storage');
 if((!is_dir($storage.'/sessions')&&!@mkdir($storage.'/sessions',0700,true))||!is_writable($storage.'/sessions')){
  http_response_code(503);error_log('Naylex: session directory unavailable');exit('<html lang="fa" dir="rtl"><p>ذخیره نشست فروشگاه ممکن نیست. مدیر هاست باید دسترسی نوشتن پوشه خصوصی storage/sessions را اصلاح کند.</p></html>');

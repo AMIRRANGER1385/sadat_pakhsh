@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require dirname(__DIR__).'/php-store/naylex-app/core.php';
+require dirname(__DIR__).'/php-store/naylex-app/uploads.php';
 require_once dirname(__DIR__).'/php-store/naylex-app/product-sales.php';
 $config=require dirname(__DIR__).'/php-store/naylex-app/config.php';
 if(config('db_name')!=='naylex_local'||config('db_port')!==33077)throw new RuntimeException('Only isolated local DB allowed.');
