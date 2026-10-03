@@ -62,10 +62,15 @@ try:
   offer=next(json.loads(s) for s in schemas if json.loads(s).get('@type')=='Product')
   assert offer['offers']['price']==800
   control=page.locator('[data-quantity-control]').filter(has=page.locator(f'input[name="id"][value="{products[1]["id"]}"]')).first
-  control.locator('[data-first-add]').click()
-  expect(control.locator('[data-product-count]')).to_have_text('۱')
+  expect(control.locator('[data-product-count]')).to_have_text('۲۵ کیلو')
+  expect(control.locator('[data-wholesale-total]')).to_contain_text('۲٬۰۰۰')
+  control.locator('[data-wholesale-minus]').click()
+  expect(control.locator('[data-product-count]')).to_have_text('۲۴ کیلو')
+  expect(control.locator('[data-wholesale-range]')).to_contain_text('۱۵ تا ۲۴ کیلو')
+  control.locator('.wholesale-add').click()
+  expect(control.locator('[data-product-count]')).to_have_text('۲۴ کیلو')
   page.goto(base+'/cart')
-  expect(page.locator('.cart-item-name')).to_contain_text('۸۰')
+  expect(page.locator('.cart-item-name')).to_contain_text('۹۰')
   browser.close()
  print('PASS guest wholesale catalogue, separation, price filters/sort, legacy routes, detail/schema and cart price')
 finally:

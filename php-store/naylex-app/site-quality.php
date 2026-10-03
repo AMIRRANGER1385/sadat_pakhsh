@@ -48,6 +48,30 @@ function public_category_options(): array {
  }return $result;
 }
 
+/** Product-type shortcuts for shoppers; dimensions remain product specifications, not top-level categories. */
+function public_product_types(): array {
+ $definitions=[
+  ['name'=>'نایلکس','query'=>'نایلکس','icon'=>'bag','terms'=>['نایلکس']],
+  ['name'=>'نایلون','query'=>'نایلون','icon'=>'bag','terms'=>['نایلون']],
+  ['name'=>'دستکش','query'=>'دستکش','icon'=>'default','terms'=>['دستکش']],
+  ['name'=>'کیسه فریزر','query'=>'کیسه فریزر','icon'=>'freezer','terms'=>['فریزر']],
+  ['name'=>'کیسه زباله','query'=>'کیسه زباله','icon'=>'trash','terms'=>['زباله']],
+  ['name'=>'سفره یکبار مصرف','query'=>'سفره','icon'=>'tablecloth','terms'=>['سفره']],
+  ['name'=>'محصولات بسته‌بندی','query'=>'بسته بندی','icon'=>'box','terms'=>['بسته‌بندی','بسته بندی']],
+ ];
+ $rows=all('SELECT p.name,c.name category_name FROM ns_products p JOIN ns_categories c ON c.id=p.category_id WHERE p.active=1');
+ $types=[];
+ foreach($definitions as $definition){
+  $count=0;
+  foreach($rows as $row){
+   $haystack=$row['name'].' '.$row['category_name'];
+   foreach($definition['terms'] as $term)if(str_contains($haystack,$term)){$count++;break;}
+  }
+  if($count)$types[]=$definition+['count'=>$count];
+ }
+ return $types;
+}
+
 /** Warnings are for the owner; never silently rewrite commercial data. */
 function product_quality_issues(array $p): array {
  $issues=[];if(!available_image((string)$p['image']))$issues[]='تصویر محصول پیدا نمی‌شود؛ یک عکس واقعی در ویرایش محصول بارگذاری کنید.';$name=digits((string)$p['name']);$description=digits((string)$p['description']);

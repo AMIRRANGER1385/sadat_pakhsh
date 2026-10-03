@@ -82,7 +82,7 @@ function settings(): array {
  if(trim((string)$settings['company_email'])==='')$settings['company_email']='info@sadatpakhsh.ir';
  return $settings;
 }
-function unit_price(array $p,int $qty,bool $unused=false): int {return (int)((is_wholesale_product($p)||$qty>=(int)$p['minimum'])?$p['wholesale']:$p['retail']);}
+function unit_price(array $p,int $qty,bool $unused=false): int {if(is_wholesale_product($p))return wholesale_tier_for_quantity($p,$qty)['price'];return (int)($qty>=(int)$p['minimum']?$p['wholesale']:$p['retail']);}
 function shipping_cost(int $sum,array $s): int {return (int)$s['free_above']>0&&$sum>=(int)$s['free_above']?0:(int)$s['shipping'];}
 function cart_lines(): array {
  $cart=$_SESSION['cart']??[];if(!$cart)return [];

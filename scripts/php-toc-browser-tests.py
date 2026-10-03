@@ -6,10 +6,11 @@ with sync_playwright() as p:
  errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  page.goto(base+'/products');expect(page.locator('.price-updated')).to_be_visible();expect(page.locator('.price-updated')).to_contain_text('آخرین به‌روزرسانی قیمت‌ها')
  href=page.locator('.catalog-grid .product-card .product-image').first.get_attribute('href');assert href
- page.goto(base+href);toc=page.locator('.site-toc');expect(toc).to_be_visible();assert toc.locator('a').count()>=2
+ page.goto(base+href);toc=page.locator('.site-toc');expect(toc).to_be_visible();expect(toc).to_contain_text('پیمایش سریع');assert toc.locator('a').count()>=2
+ toggle=toc.locator('.toc-toggle');expect(toc.locator('ol')).to_be_hidden();toggle.click();expect(toc.locator('ol')).to_be_visible()
  target=toc.locator('a').first.get_attribute('href');toc.locator('a').first.click();expect(page).to_have_url(base+href+target)
- toggle=toc.locator('.toc-toggle');toggle.click();expect(toc.locator('ol')).to_be_hidden();toggle.click();expect(toc.locator('ol')).to_be_visible()
- page.goto(base+'/guides/nylon-vs-nylex');existing=page.locator('.guide-toc');expect(existing.locator('.toc-toggle')).to_be_visible();assert existing.locator('a').count()>=2
+ assert toc.bounding_box()['y']>page.locator('.detail-grid').bounding_box()['y']
+ page.goto(base+'/guides/nylon-vs-nylex');existing=page.locator('.guide-toc');expect(existing.locator('.toc-toggle')).to_be_visible();expect(existing.locator('ol')).to_be_hidden();assert existing.locator('a').count()>=2
  page.screenshot(path='.runtime/toc-mobile.png',full_page=True)
  assert not errors,errors
  browser.close()

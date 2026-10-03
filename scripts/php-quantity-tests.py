@@ -6,6 +6,8 @@ with sync_playwright() as p:
  for path in ['/products/product-1','/']:
   g.goto(base+path)
   step=g.locator('[data-quantity-control]').first
+  expect(step.locator('.quantity-entry')).to_have_count(0)
+  expect(step.locator('[data-quick-add]')).to_have_count(0)
   expect(step.locator('[data-product-count]')).to_have_text('۰')
   for qty in ['۱','۲']:
    if path=='/products/product-1' and qty=='۱':

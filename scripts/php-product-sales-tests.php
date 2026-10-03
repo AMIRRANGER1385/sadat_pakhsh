@@ -15,9 +15,10 @@ try {
   query('INSERT INTO ns_products(name,slug,description,image,retail,wholesale,minimum,stock,unit,category_id) VALUES (?,?,?,?,?,?,?,?,?,?)',[$type,'sales-test-'.bin2hex(random_bytes(8)),'Sales test product','/products/product-1.svg',100,80,25,100,'bag',$category]);$ids[]=(int)db()->lastInsertId();
  }
  query("INSERT INTO ns_product_sales(product_id,sale_type,wholesale_id) VALUES (?,'wholesale',NULL),(?,'retail',?)",[$ids[1],$ids[0],$ids[1]]);
+ query('INSERT INTO ns_wholesale_price_tiers(product_id,tier_2_min,tier_3_min,tier_4_min,price_1,price_2,price_3,price_4) VALUES (?,5,15,25,110,100,90,80)',[$ids[1]]);
  $p=one('SELECT * FROM ns_products WHERE id=?',[$ids[0]]);
  $bulk=one('SELECT * FROM ns_products WHERE id=?',[$ids[1]]);
- expect_sales(unit_price($bulk,1)===80&&unit_price($bulk,25)===80,'wholesale price applies to all quantities without an account');
+ expect_sales(unit_price($bulk,1)===110&&unit_price($bulk,5)===100&&unit_price($bulk,15)===90&&unit_price($bulk,24)===90&&unit_price($bulk,25)===80,'four wholesale kilogram price tiers apply at every boundary');
  expect_sales(unit_price($p,1)===100&&unit_price($p,25)===80,'retail threshold pricing preserved');
  expect_sales((int)linked_wholesale($p)['id']===$ids[1],'separate wholesale product resolves');
  foreach([24=>true,25=>false,26=>false,0=>true] as $qty=>$hidden){ob_start();wholesale_recommendation($p,$qty);$html=ob_get_clean();expect_sales(str_contains($html,' hidden ')===$hidden,'threshold visibility '.$qty);}

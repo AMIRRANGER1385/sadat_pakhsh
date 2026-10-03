@@ -4,6 +4,11 @@ document.querySelectorAll('.auth-form input[name=password]').forEach(input=>{
  toggle.addEventListener('click',()=>{const visible=input.type==='password';input.type=visible?'text':'password';toggle.textContent=visible?'پنهان کردن رمز':'نمایش رمز';toggle.setAttribute('aria-pressed',String(visible));});input.insertAdjacentElement('afterend',toggle);
 });
 const cartNumber=new Intl.NumberFormat('fa-IR');
+function updateWholesaleSelector(form,requested){
+ const max=Number(form.dataset.max);const quantity=Math.max(1,Math.min(max||1,Number(requested)||1));const config=JSON.parse(form.dataset.tierConfig);let index=0,min=1,maxRange=config.min2-1;
+ if(quantity>=config.min4){index=3;min=config.min4;maxRange=null;}else if(quantity>=config.min3){index=2;min=config.min3;maxRange=config.min4-1;}else if(quantity>=config.min2){index=1;min=config.min2;maxRange=config.min3-1;}
+ const price=Number(config.prices[index]);form.querySelector('[data-wholesale-quantity]').value=quantity;form.querySelector('[data-wholesale-count]').textContent=`${cartNumber.format(quantity)} کیلو`;form.querySelector('[data-wholesale-unit-price]').textContent=`${cartNumber.format(price)} تومان`;form.querySelector('[data-wholesale-formula]').textContent=`${cartNumber.format(quantity)} × ${cartNumber.format(price)}`;form.querySelector('[data-wholesale-total]').textContent=`${cartNumber.format(quantity*price)} تومان`;form.querySelector('[data-wholesale-range]').textContent=`سفارش شما با قیمت بازه ${cartNumber.format(min)}${maxRange?` تا ${cartNumber.format(maxRange)} کیلو`:' کیلو و بیشتر'} محاسبه می‌شود.`;form.querySelector('[data-wholesale-minus]').disabled=quantity<=1;form.querySelector('[data-wholesale-plus]').disabled=quantity>=max;const summary=document.querySelector('.detail-copy .price-box strong');if(summary)summary.innerHTML=`${cartNumber.format(price)} <small>تومان</small>`;
+}
 function renderCart(data){
  const count=document.querySelector('[data-cart-count]');if(!count)return;
  document.querySelectorAll('[data-wholesale-recommendation]').forEach(box=>{const qty=data.items.find(item=>item.id===Number(box.dataset.productId))?.quantity||0;box.hidden=qty<Number(box.dataset.threshold);});
@@ -19,7 +24,7 @@ function renderCart(data){
   const price=document.createElement('p');price.textContent=`${cartNumber.format(item.quantity)} × ${cartNumber.format(item.price)} تومان`;
   body.append(title,desc,price);row.append(img,body);list.append(row);
  });
- document.querySelectorAll('[data-quantity-control]').forEach(form=>{const id=Number(form.querySelector('[name=id]').value);const qty=data.items.find(item=>item.id===id)?.quantity||0;form.dataset.qty=qty;const input=form.querySelector('[data-quantity-input]');if(input)input.value=Math.max(1,qty);const item=data.items.find(item=>item.id===id);const price=form.querySelector('[data-current-price]');if(price&&item)price.textContent=`${item.wholesale?'قیمت عمده':'قیمت خرده'} هر ${item.unit||'واحد'}: ${cartNumber.format(item.price)} تومان`;const first=form.querySelector('[data-first-add]');if(first){first.hidden=qty>0;first.disabled=Number(form.dataset.max)===0;form.querySelector('.quantity-stepper').hidden=qty===0;}form.querySelector('[data-product-count]').textContent=cartNumber.format(qty);form.querySelector('[data-minus]').disabled=qty===0;form.querySelector('[data-plus]').disabled=qty>=Number(form.dataset.max);});
+ document.querySelectorAll('[data-quantity-control]').forEach(form=>{const id=Number(form.querySelector('[name=id]').value);const qty=data.items.find(item=>item.id===id)?.quantity||0;const max=Number(form.dataset.max);form.dataset.qty=qty;if(form.matches('[data-wholesale-selector]')){if(qty)updateWholesaleSelector(form,qty);return;}const item=data.items.find(item=>item.id===id);const price=form.querySelector('[data-current-price]');if(price&&item)price.textContent=`${item.wholesale?'قیمت عمده':'قیمت خرده'} هر ${item.unit||'واحد'}: ${cartNumber.format(item.price)} تومان`;const first=form.querySelector('[data-first-add]');if(first){first.hidden=qty>0;first.disabled=max===0;form.querySelector('.quantity-stepper').hidden=qty===0;}form.querySelector('[data-product-count]').textContent=cartNumber.format(qty);form.querySelector('[data-minus]').disabled=qty===0;form.querySelector('[data-plus]').disabled=qty>=max;form.querySelectorAll('[data-quick-add]').forEach(button=>button.disabled=qty+Number(button.dataset.addQuantity)>max);});
 
 }
 const initialCart=document.getElementById('cart-initial');if(initialCart)renderCart(JSON.parse(initialCart.textContent));
@@ -28,14 +33,15 @@ document.addEventListener('submit',async event=>{
  const form=event.target;if(!form.matches('[data-quantity-control]'))return;
  event.preventDefault();if(cartBusy||!event.submitter)return;cartBusy=true;
  const action=event.submitter.value;const previousQty=Number(form.dataset.qty)||0;
- const body=new FormData(form);body.set('action',action);
+ const body=new FormData(form);body.set('action',action);if(action==='cart_add')body.set('quantity',event.submitter.dataset.addQuantity||'1');
  document.querySelectorAll('[data-quantity-control] button').forEach(b=>b.disabled=true);
  const notice=form.querySelector('[data-cart-message]');notice.textContent='';delete notice.dataset.state;
  form.setAttribute('aria-busy','true');
  try{const response=await fetch(form.action,{method:'POST',body,headers:{Accept:'application/json'},credentials:'same-origin'});const data=await response.json();if(!response.ok)throw new Error(data.error||'تغییر تعداد انجام نشد.');renderCart(data);notice.dataset.state='success';notice.textContent=Number(form.dataset.qty)===0?'محصول از سبد خرید حذف شد.':action==='cart_add'||previousQty===0?'محصول به سبد خرید اضافه شد.':'تعداد محصول در سبد خرید با موفقیت ثبت شد.';if(location.pathname==='/cart')location.reload();}
  catch(error){notice.dataset.state='error';notice.textContent=error.message||'ارتباط قطع شد؛ صفحه را تازه کنید و سبد را بررسی کنید.';}
- finally{cartBusy=false;form.removeAttribute('aria-busy');document.querySelectorAll('[data-quantity-control]').forEach(f=>{const first=f.querySelector('[data-first-add]');if(first)first.disabled=Number(f.dataset.max)===0;f.querySelector('[data-minus]').disabled=Number(f.dataset.qty)===0;f.querySelector('[data-plus]').disabled=Number(f.dataset.qty)>=Number(f.dataset.max);const set=f.querySelector('[value=cart_set]');if(set)set.disabled=Number(f.dataset.max)===0;});}
+ finally{cartBusy=false;form.removeAttribute('aria-busy');document.querySelectorAll('[data-quantity-control]').forEach(f=>{const qty=Number(f.dataset.qty),max=Number(f.dataset.max);if(f.matches('[data-wholesale-selector]')){updateWholesaleSelector(f,Number(f.querySelector('[data-wholesale-quantity]').value));f.querySelector('.wholesale-add').disabled=max===0;return;}const first=f.querySelector('[data-first-add]');if(first)first.disabled=max===0;f.querySelector('[data-minus]').disabled=qty===0;f.querySelector('[data-plus]').disabled=qty>=max;f.querySelectorAll('[data-quick-add]').forEach(button=>button.disabled=qty+Number(button.dataset.addQuantity)>max);});}
 });
+document.querySelectorAll('[data-wholesale-selector]').forEach(form=>{updateWholesaleSelector(form,form.querySelector('[data-wholesale-quantity]').value);form.querySelector('[data-wholesale-minus]').addEventListener('click',()=>updateWholesaleSelector(form,Number(form.querySelector('[data-wholesale-quantity]').value)-1));form.querySelector('[data-wholesale-plus]').addEventListener('click',()=>updateWholesaleSelector(form,Number(form.querySelector('[data-wholesale-quantity]').value)+1));});
 
 const cartWrap=document.querySelector('.cart-preview-wrap');const cartToggle=document.querySelector('.cart-preview-toggle');
 cartToggle?.addEventListener('click',()=>{const open=cartWrap.classList.toggle('is-open');cartToggle.setAttribute('aria-expanded',String(open));});
@@ -111,8 +117,8 @@ if(customerHelp){for(const [href,label] of [['/terms','قوانین و مقرر�
 
 function enableTableOfContents(toc){
  if(toc.dataset.ready)return;toc.dataset.ready='true';const list=toc.querySelector('ol');if(!list)return;
- let title=toc.querySelector(':scope > strong');if(!title){title=document.createElement('strong');title.textContent='فهرست مطالب';toc.prepend(title);}
- const button=document.createElement('button');button.type='button';button.className='toc-toggle';button.textContent='بستن فهرست';button.setAttribute('aria-expanded','true');button.setAttribute('aria-label','باز و بسته کردن فهرست مطالب');
+ let title=toc.querySelector(':scope > strong');if(!title){title=document.createElement('strong');title.textContent='پیمایش سریع';toc.prepend(title);}
+ const button=document.createElement('button');button.type='button';button.className='toc-toggle';button.textContent='نمایش فهرست';button.setAttribute('aria-expanded','false');button.setAttribute('aria-label','باز و بسته کردن پیمایش سریع');list.hidden=true;
  title.insertAdjacentElement('afterend',button);button.addEventListener('click',()=>{const open=!list.hidden;list.hidden=open;button.setAttribute('aria-expanded',String(!open));button.textContent=open?'نمایش فهرست':'بستن فهرست';});
  toc.querySelectorAll('a[href^="#"]').forEach(link=>link.addEventListener('click',()=>{const target=document.getElementById(decodeURIComponent(link.hash.slice(1)));if(!target)return;target.setAttribute('tabindex','-1');setTimeout(()=>target.focus({preventScroll:true}),350);}));
 }
@@ -120,7 +126,7 @@ document.querySelectorAll('[data-toc],article.prose,.guide-article').forEach(roo
  if(root.querySelector(':scope > .guide-toc')){enableTableOfContents(root.querySelector(':scope > .guide-toc'));return;}
  const headings=[...root.querySelectorAll('h2,h3')].filter(heading=>!heading.closest('.product-card,.article-card,.guide-card,.wholesale-recommendation,.filter-panel,.site-toc')&&heading.textContent.trim());
  if(headings.length<2)return;
- const toc=document.createElement('nav');toc.className='guide-toc site-toc';toc.setAttribute('aria-label','فهرست مطالب');const title=document.createElement('strong');title.textContent='فهرست مطالب';const list=document.createElement('ol');
+ const toc=document.createElement('nav');toc.className='guide-toc site-toc';toc.setAttribute('aria-label','پیمایش سریع');const title=document.createElement('strong');title.textContent=root.dataset.tocLabel||'پیمایش سریع';const list=document.createElement('ol');
  headings.forEach((heading,index)=>{if(!heading.id)heading.id=`content-section-${index+1}`;const item=document.createElement('li');item.className=`toc-level-${heading.tagName==='H3'?3:2}`;const link=document.createElement('a');link.href=`#${heading.id}`;link.textContent=heading.textContent.trim();item.append(link);list.append(item);});
- toc.append(title,list);const direct=[...root.children].find(child=>child.matches('.detail-grid,section,h2'));if(direct)root.insertBefore(toc,direct);else root.prepend(toc);enableTableOfContents(toc);
+ toc.append(title,list);if(root.dataset.tocPosition==='end')root.append(toc);else{const direct=[...root.children].find(child=>child.matches('.detail-grid,section,h2'));if(direct)root.insertBefore(toc,direct);else root.prepend(toc);}enableTableOfContents(toc);
 });
