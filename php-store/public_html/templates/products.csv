@@ -1,2 +1,3 @@
-﻿"retail_slug","wholesale_slug","name","category","retail_price","wholesale_price","threshold","retail_stock","wholesale_stock","unit","description","image","featured"
-"sample-bag","sample-bag-bulk","کیسه نمونه — جایگزین کنید","کیسه زباله","120000","95000","25","200","500","کیسه","توضیحات واقعی محصول، ابعاد و جنس را اینجا وارد کنید.","","0"
+﻿slug,sale_type,wholesale_slug,name,category,retail_price,wholesale_price,threshold,stock,unit,description,image,featured,tier_2_min,tier_3_min,tier_4_min,tier_price_1,tier_price_2,tier_price_3,tier_price_4
+sample-bag-retail,retail,sample-bag-wholesale,کیسه نمونه خرده — جایگزین کنید,کیسه زباله,120000,95000,25,200,کیسه,"توضیحات واقعی محصول، ابعاد و جنس را اینجا وارد کنید.",,0,,,,,,,
+sample-bag-wholesale,wholesale,,کیسه نمونه عمده — جایگزین کنید,کیسه زباله,120000,80000,25,500,کیلوگرم,"توضیحات واقعی محصول عمده، ابعاد و جنس را اینجا وارد کنید.",,0,5,15,25,110000,100000,90000,80000

@@ -6,12 +6,12 @@ function product_catalog_xlsx(array $rows): string {
  $xml=fn($v)=>htmlspecialchars((string)$v,ENT_XML1|ENT_QUOTES,'UTF-8');
  $headers=product_catalog_headers();$last=count($rows)+1;
  $sheet='<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0" rightToLeft="1"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="28"/><cols>';
- foreach([26,15,26,38,24,20,20,16,16,16,65,42,14] as$i=>$width)$sheet.='<col min="'.($i+1).'" max="'.($i+1).'" width="'.$width.'" customWidth="1"/>';
+ foreach([26,15,26,38,24,20,20,16,16,16,65,42,14,15,15,15,20,20,20,20] as$i=>$width)$sheet.='<col min="'.($i+1).'" max="'.($i+1).'" width="'.$width.'" customWidth="1"/>';
  $sheet.='</cols><sheetData>';
- foreach([array_combine($headers,$headers),...$rows] as$i=>$row){$rn=$i+1;$sheet.='<row r="'.$rn.'" ht="'.($i?48:32).'" customHeight="1">';foreach($headers as$j=>$key){$ref=chr(65+$j).$rn;$value=$row[$key]??'';$numeric=$i>0&&in_array($key,['retail_price','wholesale_price','threshold','stock','featured'],true)&&is_numeric($value);$style=$i?($numeric?2:1):3;
+ foreach([array_combine($headers,$headers),...$rows] as$i=>$row){$rn=$i+1;$sheet.='<row r="'.$rn.'" ht="'.($i?48:32).'" customHeight="1">';foreach($headers as$j=>$key){$ref=chr(65+$j).$rn;$value=$row[$key]??'';$numeric=$i>0&&in_array($key,['retail_price','wholesale_price','threshold','stock','featured','tier_2_min','tier_3_min','tier_4_min','tier_price_1','tier_price_2','tier_price_3','tier_price_4'],true)&&is_numeric($value);$style=$i?($numeric?2:1):3;
   $sheet.='<c r="'.$ref.'" s="'.$style.'"'.($numeric?'':' t="inlineStr"').'>'.($numeric?'<v>'.$xml($value).'</v>':'<is><t xml:space="preserve">'.$xml($value).'</t></is>').'</c>';
  }$sheet.='</row>';}
- $sheet.='</sheetData><autoFilter ref="A1:M'.$last.'"/><printOptions horizontalCentered="1"/><pageSetup orientation="landscape" paperSize="9"/></worksheet>';
+ $sheet.='</sheetData><autoFilter ref="A1:T'.$last.'"/><printOptions horizontalCentered="1"/><pageSetup orientation="landscape" paperSize="9"/></worksheet>';
  $files=[
  '[Content_Types].xml'=>'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>',
  '_rels/.rels'=>'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',

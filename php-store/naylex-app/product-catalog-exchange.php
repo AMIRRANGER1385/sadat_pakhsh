@@ -14,8 +14,9 @@ function product_import_match(string $slug,string $name,string $type,bool $lock=
 // One row per product keeps standalone and linked products lossless on export.
 function product_catalog_export_rows(int $page=1): array {
  if($page<1)throw new ShopError('شماره صفحه نامعتبر است.');
+ ensure_product_sales_schema();
  $offset=($page-1)*500;
- return all('SELECT p.slug,COALESCE(s.sale_type,\'retail\') sale_type,w.slug wholesale_slug,p.name,c.name category,p.retail retail_price,p.wholesale wholesale_price,p.minimum threshold,p.stock,p.unit,p.description,p.image,p.featured FROM ns_products p JOIN ns_categories c ON c.id=p.category_id LEFT JOIN ns_product_sales s ON s.product_id=p.id LEFT JOIN ns_products w ON w.id=s.wholesale_id WHERE p.active=1 ORDER BY p.id LIMIT 500 OFFSET '.$offset);
+ return all("SELECT p.slug,COALESCE(s.sale_type,'retail') sale_type,w.slug wholesale_slug,p.name,c.name category,p.retail retail_price,p.wholesale wholesale_price,CASE WHEN s.sale_type='wholesale' THEN 25 ELSE p.minimum END threshold,p.stock,CASE WHEN s.sale_type='wholesale' THEN 'کیلوگرم' ELSE p.unit END unit,p.description,p.image,p.featured,CASE WHEN s.sale_type='wholesale' THEN COALESCE(t.tier_2_min,5) ELSE '' END tier_2_min,CASE WHEN s.sale_type='wholesale' THEN COALESCE(t.tier_3_min,15) ELSE '' END tier_3_min,CASE WHEN s.sale_type='wholesale' THEN COALESCE(t.tier_4_min,25) ELSE '' END tier_4_min,CASE WHEN s.sale_type='wholesale' THEN COALESCE(t.price_1,p.wholesale) ELSE '' END tier_price_1,CASE WHEN s.sale_type='wholesale' THEN COALESCE(t.price_2,p.wholesale) ELSE '' END tier_price_2,CASE WHEN s.sale_type='wholesale' THEN COALESCE(t.price_3,p.wholesale) ELSE '' END tier_price_3,CASE WHEN s.sale_type='wholesale' THEN COALESCE(t.price_4,p.wholesale) ELSE '' END tier_price_4 FROM ns_products p JOIN ns_categories c ON c.id=p.category_id LEFT JOIN ns_product_sales s ON s.product_id=p.id LEFT JOIN ns_products w ON w.id=s.wholesale_id LEFT JOIN ns_wholesale_price_tiers t ON t.product_id=p.id WHERE p.active=1 ORDER BY p.id LIMIT 500 OFFSET ".$offset);
 }
 function product_catalog_csv(array $rows): string {
  $stream=fopen('php://temp','w+');fwrite($stream,"\xEF\xBB\xBF");fputcsv($stream,product_catalog_headers(),',','"','');
@@ -25,7 +26,8 @@ function product_catalog_csv(array $rows): string {
 function product_catalog_download(): never {
  admin_user();$page=number_input('page',1,1000000,$_GET);
  $rows=product_catalog_export_rows($page);if(!$rows)throw new ShopError('در این بخش محصول فعالی برای خروجی وجود ندارد.',404);
- if(($_GET['format']??'xlsx')==='xlsx'){require_once __DIR__.'/catalog-xlsx.php';$bytes=product_catalog_xlsx($rows);header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');header('Content-Disposition: attachment; filename="products-'.gmdate('Y-m-d').'-'.$page.'.xlsx"');echo $bytes;exit;}
+ $format=$_GET['format']??'xlsx';if(!in_array($format,['xlsx','csv'],true))throw new ShopError('فرمت خروجی معتبر نیست.');
+ if($format==='xlsx'){require_once __DIR__.'/catalog-xlsx.php';$bytes=product_catalog_xlsx($rows);header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');header('Content-Disposition: attachment; filename="products-'.gmdate('Y-m-d').'-'.$page.'.xlsx"');echo $bytes;exit;}
  header('Content-Type: text/csv; charset=utf-8');header('Content-Disposition: attachment; filename="products-'.gmdate('Y-m-d').'-'.$page.'.csv"');
  echo product_catalog_csv($rows);exit;
 }
@@ -41,6 +43,14 @@ function product_catalog_validate(array $rows,string $mode,bool $lock=false): ar
   if($r['wholesale_slug']===$slug)throw new ShopError('محصول نمی‌تواند به خودش متصل شود.');
   foreach(['name'=>[2,170],'category'=>[2,120],'unit'=>[1,30],'description'=>[0,5000]] as $key=>[$min,$max])if(!mb_check_encoding($r[$key],'UTF-8')||mb_strlen($r[$key])<$min||mb_strlen($r[$key])>$max)throw new ShopError('مقدار ستون '.$key.' معتبر نیست.');
   foreach(['retail_price'=>[1,100000000],'wholesale_price'=>[1,100000000],'threshold'=>[1,1000],'stock'=>[0,100000],'featured'=>[0,1]] as $key=>[$min,$max])$r[$key]=number_input($key,$min,$max,$r);
+  $tierKeys=['tier_2_min','tier_3_min','tier_4_min','tier_price_1','tier_price_2','tier_price_3','tier_price_4'];
+  if($r['sale_type']==='wholesale'){
+   $defaults=['tier_2_min'=>5,'tier_3_min'=>15,'tier_4_min'=>25,'tier_price_1'=>$r['wholesale_price'],'tier_price_2'=>$r['wholesale_price'],'tier_price_3'=>$r['wholesale_price'],'tier_price_4'=>$r['wholesale_price']];
+   foreach($defaults as$key=>$value)if(!isset($r[$key])||$r[$key]==='')$r[$key]=(string)$value;
+   foreach(['tier_2_min'=>[2,998],'tier_3_min'=>[3,999],'tier_4_min'=>[4,1000],'tier_price_1'=>[1,100000000],'tier_price_2'=>[1,100000000],'tier_price_3'=>[1,100000000],'tier_price_4'=>[1,100000000]] as$key=>[$min,$max])$r[$key]=number_input($key,$min,$max,$r);
+   if(!($r['tier_2_min']<$r['tier_3_min']&&$r['tier_3_min']<$r['tier_4_min']))throw new ShopError('مرز بازه‌های قیمت عمده باید به‌ترتیب صعودی باشند.');
+   $r['unit']='کیلوگرم';$r['threshold']=25;$r['wholesale_price']=$r['tier_price_4'];
+  }else foreach($tierKeys as$key)if(isset($r[$key])&&$r[$key]!=='')throw new ShopError('ستون‌های بازه قیمت فقط برای ردیف wholesale تکمیل شوند.');
   if($r['image']!==''&&!valid_image($r['image']))throw new ShopError('مسیر تصویر محصول معتبر نیست.');
   $old=product_import_match($slug,$r['name'],$r['sale_type'],$lock);
   if($old){if(isset($matched[$old['id']]))throw new ShopError('دو ردیف فایل به یک محصول موجود اشاره می‌کنند.');$matched[$old['id']]=true;}
@@ -67,6 +77,7 @@ function product_catalog_apply(array $rows,string $mode): array {
   }
   foreach($current as $r){$targetId=null;if($r['wholesale_slug']!=='')$targetId=$ids[$r['wholesale_slug']]??(int)one('SELECT id FROM ns_products WHERE slug=?',[$r['wholesale_slug']])['id'];
    query('INSERT INTO ns_product_sales(product_id,sale_type,wholesale_id) VALUES (?,?,?) ON DUPLICATE KEY UPDATE sale_type=VALUES(sale_type),wholesale_id=VALUES(wholesale_id)',[$ids[$r['slug']],$r['sale_type'],$targetId]);
+   if($r['sale_type']==='wholesale')save_wholesale_price_tiers($ids[$r['slug']],[$r['tier_2_min'],$r['tier_3_min'],$r['tier_4_min'],$r['tier_price_1'],$r['tier_price_2'],$r['tier_price_3'],$r['tier_price_4']]);
   }
   return ['created'=>$created,'updated'=>$updated];
  });

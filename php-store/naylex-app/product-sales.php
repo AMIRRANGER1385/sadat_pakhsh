@@ -4,6 +4,7 @@ function ensure_product_sales_schema(): void {
  static $ready=false;if($ready)return;
  query("CREATE TABLE IF NOT EXISTS ns_product_sales (product_id BIGINT UNSIGNED PRIMARY KEY, sale_type VARCHAR(10) NOT NULL DEFAULT 'retail', wholesale_id BIGINT UNSIGNED NULL, INDEX(wholesale_id), FOREIGN KEY(product_id) REFERENCES ns_products(id) ON DELETE CASCADE, FOREIGN KEY(wholesale_id) REFERENCES ns_products(id) ON DELETE SET NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
  query("CREATE TABLE IF NOT EXISTS ns_wholesale_price_tiers (product_id BIGINT UNSIGNED PRIMARY KEY, tier_2_min SMALLINT UNSIGNED NOT NULL DEFAULT 5, tier_3_min SMALLINT UNSIGNED NOT NULL DEFAULT 15, tier_4_min SMALLINT UNSIGNED NOT NULL DEFAULT 25, price_1 BIGINT UNSIGNED NOT NULL, price_2 BIGINT UNSIGNED NOT NULL, price_3 BIGINT UNSIGNED NOT NULL, price_4 BIGINT UNSIGNED NOT NULL, FOREIGN KEY(product_id) REFERENCES ns_products(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+ query("UPDATE ns_products p JOIN ns_product_sales s ON s.product_id=p.id SET p.unit='کیلوگرم',p.minimum=25 WHERE s.sale_type='wholesale' AND (p.unit<>'کیلوگرم' OR p.minimum<>25)");
  query("CREATE TABLE IF NOT EXISTS ns_product_price_updates (product_id BIGINT UNSIGNED PRIMARY KEY,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(product_id) REFERENCES ns_products(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
  query('INSERT IGNORE INTO ns_product_price_updates(product_id,updated_at) SELECT id,updated_at FROM ns_products');
  $ready=true;
@@ -11,8 +12,8 @@ function ensure_product_sales_schema(): void {
 function wholesale_price_tiers(array $p): array {
  $row=!empty($p['id'])?one('SELECT * FROM ns_wholesale_price_tiers WHERE product_id=?',[(int)$p['id']]):null;
  if($row)return array_map('intval',$row);
- $base=max(1,(int)($p['wholesale']??1));$retail=max($base,(int)($p['retail']??$base));
- return ['product_id'=>(int)($p['id']??0),'tier_2_min'=>5,'tier_3_min'=>15,'tier_4_min'=>25,'price_1'=>$retail,'price_2'=>(int)round(($retail+$base*2)/3),'price_3'=>(int)round(($retail+$base)/2),'price_4'=>$base];
+ $base=max(1,(int)($p['wholesale']??1));
+ return ['product_id'=>(int)($p['id']??0),'tier_2_min'=>5,'tier_3_min'=>15,'tier_4_min'=>25,'price_1'=>$base,'price_2'=>$base,'price_3'=>$base,'price_4'=>$base];
 }
 function wholesale_tier_for_quantity(array $p,int $qty): array {
  $tiers=wholesale_price_tiers($p);$qty=max(1,$qty);
@@ -25,7 +26,6 @@ function save_wholesale_price_tiers(int $productId,array $values): void {
  [$min2,$min3,$min4,$price1,$price2,$price3,$price4]=$values;
  if(!($min2>=2&&$min2<$min3&&$min3<$min4&&$min4<=1000))throw new ShopError('مرز بازه‌های قیمت عمده باید به‌ترتیب صعودی و حداکثر ۱۰۰۰ باشد.');
  if(min($price1,$price2,$price3,$price4)<1)throw new ShopError('قیمت همه بازه‌های عمده باید بیشتر از صفر باشد.');
- if(!($price1>=$price2&&$price2>=$price3&&$price3>=$price4))throw new ShopError('قیمت هر کیلو در بازه‌های بیشتر نباید از بازه قبلی گران‌تر باشد.');
  query('INSERT INTO ns_wholesale_price_tiers(product_id,tier_2_min,tier_3_min,tier_4_min,price_1,price_2,price_3,price_4) VALUES (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE tier_2_min=VALUES(tier_2_min),tier_3_min=VALUES(tier_3_min),tier_4_min=VALUES(tier_4_min),price_1=VALUES(price_1),price_2=VALUES(price_2),price_3=VALUES(price_3),price_4=VALUES(price_4)',[$productId,$min2,$min3,$min4,$price1,$price2,$price3,$price4]);
 }
 function wholesale_price_table(array $p): void {
@@ -79,9 +79,9 @@ function product_sales_editor(array $p): void {
  $options=all("SELECT p.id,p.name,p.slug,p.active,p.wholesale,p.unit FROM ns_products p JOIN ns_product_sales s ON s.product_id=p.id WHERE s.sale_type='wholesale' AND p.id<>? ORDER BY p.active DESC,p.name",[$p['id']]);
  ?><fieldset class="feature-editor"><legend>نوع فروش و اتصال محصول خرده به عمده</legend>
  <label>نوع فروش<select name="sale_type"><option value="retail" <?=$sales['sale_type']==='retail'?'selected':''?>>خرده</option><option value="wholesale" <?=$sales['sale_type']==='wholesale'?'selected':''?>>عمده</option></select></label>
- <label>محصول عمدهٔ همین کالا<select name="wholesale_id"><option value="0">محصول عمده را انتخاب کنید</option><?php foreach($options as $option):?><option value="<?=$option['id']?>" <?=(int)$sales['wholesale_id']===(int)$option['id']?'selected':''?>><?=h($option['name'])?> — <?=money($option['wholesale'])?> تومان / <?=h($option['unit'])?><?=$option['active']?'':' (غیرفعال)'?></option><?php endforeach;?></select></label>
- <?php $tiers=wholesale_price_tiers($p);?><div class="wholesale-tier-editor" data-wholesale-tier-editor><h4>چهار بازه قیمت محصول عمده</h4><p>مرز شروع و قیمت هر کیلو را تعیین کنید. قیمت بازه‌های بزرگ‌تر باید مساوی یا کمتر از بازه قبلی باشد.</p><div class="form-grid"><?php field('قیمت هر کیلو از ۱ تا پیش از بازه دوم','tier_price_1',$tiers['price_1'],'number');field('شروع بازه دوم (کیلو)','tier_2_min',$tiers['tier_2_min'],'number');field('قیمت هر کیلو در بازه دوم','tier_price_2',$tiers['price_2'],'number');field('شروع بازه سوم (کیلو)','tier_3_min',$tiers['tier_3_min'],'number');field('قیمت هر کیلو در بازه سوم','tier_price_3',$tiers['price_3'],'number');field('شروع بازه چهارم (کیلو)','tier_4_min',$tiers['tier_4_min'],'number');field('قیمت هر کیلو در بازه چهارم و بالاتر','tier_price_4',$tiers['price_4'],'number');?></div></div>
- <?php field('تعداد شروع پیشنهاد عمده (مثلاً ۲۵ کیسه)','minimum',$p['minimum'],'number');?>
+ <?php if($sales['sale_type']==='wholesale'):hidden('wholesale_id',0);hidden('minimum',25);?><p class="notice">واحد فروش محصول عمده «کیلوگرم» و مقدار پیشنهادی اولیه در صفحه محصول ۲۵ کیلو است.</p><?php else:?><label>محصول عمدهٔ همین کالا<select name="wholesale_id"><option value="0">محصول عمده را انتخاب کنید</option><?php foreach($options as $option):?><option value="<?=$option['id']?>" <?=(int)$sales['wholesale_id']===(int)$option['id']?'selected':''?>><?=h($option['name'])?> — <?=money($option['wholesale'])?> تومان / <?=h($option['unit'])?><?=$option['active']?'':' (غیرفعال)'?></option><?php endforeach;?></select></label>
+ <?php $tiers=wholesale_price_tiers($p);?><div class="wholesale-tier-editor" data-wholesale-tier-editor><h4>چهار بازه قیمت محصول عمده</h4><p>مرز شروع و قیمت هر کیلو را تعیین کنید. بازه چهارم به‌صورت پیش‌فرض از ۲۵ کیلوگرم شروع می‌شود.</p><div class="form-grid"><?php field('قیمت هر کیلو از ۱ تا پیش از بازه دوم','tier_price_1',$tiers['price_1'],'number');field('شروع بازه دوم (کیلو)','tier_2_min',$tiers['tier_2_min'],'number');field('قیمت هر کیلو در بازه دوم','tier_price_2',$tiers['price_2'],'number');field('شروع بازه سوم (کیلو)','tier_3_min',$tiers['tier_3_min'],'number');field('قیمت هر کیلو در بازه سوم','tier_price_3',$tiers['price_3'],'number');field('شروع بازه چهارم (کیلو)','tier_4_min',$tiers['tier_4_min'],'number');field('قیمت هر کیلو در بازه چهارم و بالاتر','tier_price_4',$tiers['price_4'],'number');?></div></div>
+ <?php field('وزن شروع پیشنهاد عمده (۲۵ کیلوگرم)','minimum',$p['minimum']?:25,'number');endif;?>
  <p>برای هر محصول خرده، محصول عمدهٔ همان کالا را انتخاب کنید. با رسیدن تعداد سفارش به این عدد یا بیشتر، پیشنهاد خرید و لینک صفحهٔ آن محصول با قیمت عمده نمایش داده می‌شود. این عدد بر اساس واحد فروش محصول خرده است. برای محصولی با نوع «عمده»، انتخاب محصول مرتبط لازم نیست.</p>
  <a class="text-link" href="/admin?tab=products&amp;edit=0&amp;sale_type=wholesale" target="_blank" rel="noopener">ساخت محصول عمده در برگهٔ جدید</a>
  <small>پس از ذخیرهٔ محصول عمده، فرم خرده را دوباره باز کنید تا محصول جدید در فهرست باشد؛ اطلاعات ذخیره‌نشده را ابتدا یادداشت کنید.</small>
