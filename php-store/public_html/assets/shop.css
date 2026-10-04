@@ -98,4 +98,5 @@ body{background:linear-gradient(180deg,#f8fbf7 0,#fff 360px)}
 .wholesale-quantity-input{display:flex;align-items:center;justify-content:center;gap:7px;min-width:0;background:#fff;color:#183e2b;font-size:14px;font-weight:750}
 .wholesale-quantity-input input{width:90px;height:42px;padding:4px 8px;border:0;background:transparent;color:inherit;font:inherit;font-size:18px;text-align:center;direction:ltr;box-shadow:none}
 .wholesale-quantity-input input:focus{outline:2px solid #245c43;outline-offset:-3px;box-shadow:none}
-.wholesale-quantity-input span:last-child{white-space:nowrap}
+.wholesale-quantity-input span{white-space:nowrap}
+.wholesale-tier-table{margin-right:auto;margin-left:0}
