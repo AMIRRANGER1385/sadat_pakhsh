@@ -55,12 +55,13 @@ function handle_action(): never {
  case 'product':
   $id=number_input('id',0,PHP_INT_MAX);$name=text_input('name',3,180);$slug=text_input('slug',1,120);if(!preg_match('/^[a-z0-9-]+$/',$slug))throw new ShopError('شناسه آدرس فقط حروف کوچک انگلیسی، عدد و خط تیره باشد.');
   $oldProduct=$id?one('SELECT slug,retail,wholesale FROM ns_products WHERE id=?',[$id]):null;if($id&&!$oldProduct)throw new ShopError('محصول پیدا نشد.',404);if(one('SELECT id FROM ns_products WHERE slug=? AND id<>?',[$slug,$id]))throw new ShopError('این شناسه آدرس قبلاً استفاده شده است.');
-  $description=text_input('description',10,5000);$retail=number_input('retail',1);$wholesale=number_input('wholesale',1);if($wholesale>$retail)throw new ShopError('قیمت عمده نباید بیشتر از خرده باشد.');
+  $description=text_input('description',10,5000);$retail=number_input('retail',1);$wholesale=number_input('wholesale',1);
   $seoData=['seo_title'=>text_input('seo_title',0,180),'meta_description'=>text_input('meta_description',0,350),'focus_keyword'=>text_input('focus_keyword',0,180),'intro'=>text_input('seo_intro',0,3000)];
   $minimum=number_input('minimum',1,1000);$stock=number_input('stock',0,100000);$unit=text_input('unit',1,30);$category=number_input('category_id',1,PHP_INT_MAX);if(!one('SELECT id FROM ns_categories WHERE id=?',[$category]))throw new ShopError('دسته‌بندی نامعتبر است.');$featured=isset($_POST['featured'])?1:0;
   $image=text_input('image',0,500);if(isset($_FILES['photo'])&&$_FILES['photo']['error']!==UPLOAD_ERR_NO_FILE){rate_limit('upload:'.$admin['id'],40);$image=upload_image($_FILES['photo']);}if(!valid_image($image))throw new ShopError('عکس محصول را انتخاب کنید.');
   $saleType=text_input('sale_type',1,10);if(!in_array($saleType,['retail','wholesale'],true))throw new ShopError('نوع فروش نامعتبر است.');
   $tierValues=[];if($saleType==='wholesale'){$tierValues=[number_input('tier_2_min',2,1000),number_input('tier_3_min',3,1000),number_input('tier_4_min',4,1000),number_input('tier_price_1',1),number_input('tier_price_2',1),number_input('tier_price_3',1),number_input('tier_price_4',1)];$wholesale=$tierValues[6];$unit='کیلوگرم';$minimum=25;}
+  if($wholesale>$retail)throw new ShopError('قیمت عمده یا قیمت بازه چهارم نباید بیشتر از قیمت خرده باشد.');
   $linked=number_input('wholesale_id',0,PHP_INT_MAX);
   if($saleType==='wholesale')$linked=0;
   if($saleType==='retail'&&!$linked)throw new ShopError('برای محصول خرده، محصول عمدهٔ همین کالا را انتخاب کنید. ابتدا محصول عمده را بسازید و سپس آن را به محصول خرده متصل کنید.');
