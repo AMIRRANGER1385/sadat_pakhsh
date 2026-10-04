@@ -90,3 +90,12 @@ body{background:linear-gradient(180deg,#f8fbf7 0,#fff 360px)}
 .category-tile,.product-card{background:linear-gradient(180deg,#fff,#f8fbf5)}.featured-section{background:linear-gradient(180deg,#f2f8f1,#fff)}footer{background:linear-gradient(180deg,#f3f8f1,#eef5f0)}
 @keyframes heroFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media(max-width:760px){.hero-slider-controls{justify-content:center}.hero-nav{top:auto;bottom:18px;width:34px;height:34px}.hero-prev{right:18px}.hero-next{left:18px}.benefits{grid-template-columns:1fr;margin-top:14px}.benefits>div{border-left:0}}
+
+/* Compact, keyboard-editable wholesale quantity selector. */
+.wholesale-quantity-control{width:min(100%,560px);padding:16px}
+.wholesale-quantity-control .quantity-stepper{grid-template-columns:44px 1fr 44px}
+.wholesale-quantity-control .quantity-stepper button{width:44px;height:44px}
+.wholesale-quantity-input{display:flex;align-items:center;justify-content:center;gap:7px;min-width:0;background:#fff;color:#183e2b;font-size:14px;font-weight:750}
+.wholesale-quantity-input input{width:90px;height:42px;padding:4px 8px;border:0;background:transparent;color:inherit;font:inherit;font-size:18px;text-align:center;direction:ltr;box-shadow:none}
+.wholesale-quantity-input input:focus{outline:2px solid #245c43;outline-offset:-3px;box-shadow:none}
+.wholesale-quantity-input span:last-child{white-space:nowrap}
