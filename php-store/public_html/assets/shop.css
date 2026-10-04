@@ -105,3 +105,8 @@ body{background:linear-gradient(180deg,#f8fbf7 0,#fff 360px)}
 .wholesale-purchase-layout .wholesale-tier-table{clear:none;width:100%;margin:0}
 .wholesale-order-column .product-stock-total{margin-top:12px}
 @media(max-width:760px){.wholesale-purchase-layout{grid-template-columns:1fr;gap:20px}.wholesale-purchase-layout .wholesale-tier-table{order:2}}
+.wholesale-tier-message{position:fixed;right:20px;bottom:20px;z-index:500;display:flex;align-items:center;gap:12px;width:min(360px,calc(100vw - 40px));margin:0;padding:11px 14px;border:1px solid #9bc9a8;border-radius:10px;background:#e9f7ed;box-shadow:0 12px 32px #173f3530;color:#174c2d;font-size:12px;font-weight:700;line-height:1.8;opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .25s ease,transform .25s ease}
+.wholesale-tier-message[hidden]{display:none}
+.wholesale-tier-message.is-visible{opacity:1;transform:none;pointer-events:auto}
+.wholesale-tier-message button{display:grid;place-items:center;flex:0 0 28px;width:28px;height:28px;border-radius:50%;background:#fff;color:#174c2d;font-size:20px;line-height:1}
+@media(max-width:560px){.wholesale-tier-message{right:12px;bottom:12px;width:calc(100vw - 24px)}}
