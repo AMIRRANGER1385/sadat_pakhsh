@@ -9,9 +9,15 @@ function seo_admin(): void {
 }
 function seo_readiness_panel(): void {
  $products=all('SELECT p.id,p.name,p.description,p.image,s.seo_title,s.meta_description FROM ns_products p LEFT JOIN ns_product_seo s ON s.product_id=p.id WHERE p.active=1 ORDER BY p.id');
- $issues=[];$titles=[];$descriptions=[];
+ $issues=[];$titles=[];$descriptions=[];$siteIssues=[];$settings=settings();
+ if(content_text('seo.google_verification','')==='')$siteIssues[]='کد تأیید Google Search Console ثبت نشده است؛ بدون سرچ کنسول، درخواست ایندکس و علت دقیق عدم نمایش قابل پیگیری نیست.';
+ if(trim((string)$settings['company_about'])==='')$siteIssues[]='معرفی واقعی مجموعه در بخش اطلاعات شرکت خالی است؛ سابقه، تخصص، محدوده خدمت و مزیت قابل اثبات را تکمیل کنید.';
+ if(trim((string)$settings['company_address'])===''||trim((string)$settings['company_phone'])==='')$siteIssues[]='نشانی یا تلفن عمومی مجموعه کامل نیست؛ اطلاعات هویتی یکسان به اعتماد کاربر و شناخت برند کمک می‌کند.';
+ $articleCount=(int)query('SELECT COUNT(*) FROM ns_articles WHERE active=1 AND published_at<=UTC_TIMESTAMP()')->fetchColumn();
+ if($articleCount===0)$siteIssues[]='مقاله منتشرشده‌ای وجود ندارد؛ فقط محتوای اصیل و مبتنی بر تجربه واقعی تولید، انتخاب و خرید منتشر کنید.';
  foreach($products as$p){
   $notes=[];if(!available_image($p['image']))$notes[]='عکس محصول موجود نیست؛ عکس واقعی بارگذاری کنید.';
+  if(preg_match('#^/products/(?:product-[0-9]+|hero)\.svg$#',(string)$p['image']))$notes[]='تصویر فعلی نمونه است؛ چند عکس واقعی، واضح و اختصاصی از محصول بارگذاری کنید.';
   if(mb_strlen(trim($p['description']))<80)$notes[]='توضیح محصول کوتاه است؛ مشخصات و کاربرد واقعی را تکمیل کنید.';
   if(trim($p['seo_title']??'')!=='')$titles[trim($p['seo_title'])][]=$p;
   if(trim($p['meta_description']??'')!=='')$descriptions[trim($p['meta_description'])][]=$p;
@@ -19,6 +25,7 @@ function seo_readiness_panel(): void {
  }
  foreach(['عنوان سئو'=>$titles,'توضیح نتیجه جستجو'=>$descriptions] as$label=>$groups)foreach($groups as$group)if(count($group)>1)foreach($group as$p)$issues[]=['product'=>$p,'notes'=>[$label.' با محصول دیگری یکسان است؛ متن اختصاصی بنویسید.']];
  ?><section class="panel"><h2>بازبینی محتوای سئو</h2><p>این بررسی روی اطلاعات همین نصب اجرا می‌شود و وضعیت ایندکس یا رتبه در گوگل را اندازه نمی‌گیرد. کوتاه‌بودن متن صرفاً نشانه‌ای برای بازبینی است.</p><p><a href="/sitemap.xml" target="_blank" rel="noopener">نقشه سایت</a> · <a href="/robots.txt" target="_blank" rel="noopener">دسترسی خزنده‌ها</a> · <a href="/admin?tab=quality">کامل‌بودن اطلاعات فروشگاه</a></p><?php
+ if($siteIssues){echo '<h3>اقدام‌های ضروری کل سایت</h3><ul>';foreach($siteIssues as$note)echo '<li>'.h($note).'</li>';echo '</ul>';}else echo '<p>اطلاعات پایه سایت، کد تأیید گوگل و محتوای تحریریه در کنترل اولیه کامل هستند.</p>';
  if(!$issues)echo '<p>در کنترل تصاویر، طول اولیه توضیحات و تکرار متادیتای اختصاصی، موردی پیدا نشد.</p>';
  foreach($issues as$issue){echo '<h3><a href="/admin?tab=products&amp;edit='.(int)$issue['product']['id'].'">'.h($issue['product']['name']).'</a></h3><ul>';foreach($issue['notes'] as$note)echo '<li>'.h($note).'</li>';echo '</ul>';}
  ?><p>برای تکمیل شرایط خرید و مرجوعی، از <a href="/admin?tab=terms">بخش ضوابط و شرایط سایت</a> استفاده کنید. صفحات دارای متن موقت تا تکمیل محتوا وارد نقشه سایت نمی‌شوند.</p></section><?php
