@@ -15,30 +15,50 @@ function validate_gateway_response(string $action,mixed $response): array {
  $data=is_array($response)?($response['data']??[]):[];
  if(!is_array($data))throw new ShopError('پاسخ درگاه معتبر نیست.');
  if(!in_array($data['code']??0,$action==='request'?[100]:[100,101],true))throw new ShopError('درگاه پرداخت را تأیید نکرد.');
- if($action==='request'&&!preg_match('/^A[a-zA-Z0-9]{35}$/',$data['authority']??''))throw new ShopError('پاسخ درگاه معتبر نیست.');
+ if($action==='request'&&!preg_match('/^[a-zA-Z0-9]{36}$/',$data['authority']??''))throw new ShopError('پاسخ درگاه معتبر نیست.');
  if($action==='verify'&&(!ctype_digit((string)($data['ref_id']??''))||(string)$data['ref_id']==='0'))throw new ShopError('شناسه پرداخت معتبر نیست.');
  if($action==='inquiry'&&!in_array($data['status']??'', ['PAID','VERIFIED','IN_BANK','FAILED','REVERSED'],true))throw new ShopError('وضعیت پرداخت نامعتبر است.');
  return $data;
 }
 function payment_url(string $authority): string {return (config('sandbox')?'https://sandbox.zarinpal.com':'https://www.zarinpal.com').'/pg/StartPay/'.rawurlencode($authority);}
+function saved_checkout_profile(): ?array {
+ $profile=$_SESSION['checkout_profile']??null;
+ if(!is_array($profile))return null;
+ $name=trim((string)($profile['name']??''));
+ $phone=digits(trim((string)($profile['phone']??'')));
+ $postal=digits(trim((string)($profile['postal_code']??'')));
+ $address=trim((string)($profile['address']??''));
+ if(mb_strlen($name)<3||mb_strlen($name)>120)return null;
+ if(!preg_match('/^09\d{9}$/',$phone))return null;
+ if(!preg_match('/^\d{10}$/',$postal))return null;
+ if(mb_strlen($address)<15||mb_strlen($address)>1000)return null;
+ return ['name'=>$name,'phone'=>$phone,'postal_code'=>$postal,'address'=>$address];
+}
+function checkout_address_with_postal(string $address,string $postal): string {
+ $address=trim($address);
+ return str_contains($address,'کد پستی')?$address:($address."\nکد پستی: ".$postal);
+}
 function release_order(int $id): void {
  transaction(function()use($id){$o=one('SELECT * FROM ns_orders WHERE id=? FOR UPDATE',[$id]);if(!$o||$o['status']!=='PENDING'||$o['authority']!==null)return;
  query("UPDATE ns_orders SET status='CANCELLED' WHERE id=?",[$id]);
  foreach(all('SELECT * FROM ns_order_items WHERE order_id=?',[$id]) as $i)query('UPDATE ns_products SET stock=stock+?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?',[$i['quantity'],$i['product_id']]);});
 }
 function checkout(): never {
- $u=current_user();$name=text_input('name',3,120);$phone=phone_input();$address=text_input('address',15,1000);$key=text_input('checkout_key',64,64);
+ $u=current_user();$name=text_input('name',3,120);$phone=phone_input();$postal=digits(text_input('postal_code',10,10));$address=text_input('address',15,1000);$key=text_input('checkout_key',64,64);
+ if(!preg_match('/^\d{10}$/',$postal))throw new ShopError('کد پستی باید ۱۰ رقم باشد.');
+ $_SESSION['checkout_profile']=['name'=>$name,'phone'=>$phone,'postal_code'=>$postal,'address'=>$address];
+ $addressWithPostal=checkout_address_with_postal($address,$postal);
  if(!preg_match('/^[a-f0-9]{64}$/',$key)||!hash_equals($_SESSION['checkout_key']??'', $key))throw new ShopError('شناسه سبد معتبر نیست؛ صفحه تسویه را تازه کنید.');
  rate_limit('checkout-global',80);rate_limit('checkout-phone:'.$phone,8);
  $cart=$_SESSION['cart']??[];ksort($cart,SORT_NUMERIC);if(!$cart||count($cart)>100)throw new ShopError('سبد خرید خالی یا نامعتبر است.');
- $fingerprint=hash('sha256',json_encode([$name,$phone,$address,$cart,$u['id']??null],JSON_UNESCAPED_UNICODE));
+ $fingerprint=hash('sha256',json_encode([$name,$phone,$postal,$addressWithPostal,$cart,$u['id']??null],JSON_UNESCAPED_UNICODE));
  $old=one('SELECT * FROM ns_orders WHERE checkout_key=?',[$key]);
  if($old){if(!hash_equals($old['request_hash'],$fingerprint))throw new ShopError('اطلاعات سفارش تغییر کرده؛ از سبد خرید دوباره وارد تسویه شوید.');if($old['status']==='PENDING'&&$old['authority'])redirect(payment_url($old['authority']));redirect('/track?code='.$old['code']);}
  if(!config('merchant_id'))throw new ShopError('درگاه هنوز توسط مدیر فعال نشده است.');
- $order=transaction(function()use($u,$cart,$name,$phone,$address,$key,$fingerprint){$lines=[];$sum=0;
+ $order=transaction(function()use($u,$cart,$name,$phone,$addressWithPostal,$key,$fingerprint){$lines=[];$sum=0;
   foreach($cart as $id=>$qty){$qty=(int)$qty;if($qty<1||$qty>1000)throw new ShopError('تعداد خرید نامعتبر است.');$p=one('SELECT * FROM ns_products WHERE id=? FOR UPDATE',[$id]);if(!$p||!$p['active']||(int)$p['stock']<$qty)throw new ShopError('موجودی یکی از محصولات کافی نیست.');$price=unit_price($p,$qty);$lines[]=[$p,$qty,$price];$sum+=$price*$qty;}
   $shipping=shipping_cost($sum,settings());$total=$sum+$shipping;if($total>200000000)throw new ShopError('مبلغ سفارش بیش از سقف مجاز است.');
-  $code='NS-'.strtoupper(bin2hex(random_bytes(10)));query('INSERT INTO ns_orders(code,user_id,name,phone,address,total,shipping,checkout_key,request_hash) VALUES (?,?,?,?,?,?,?,?,?)',[$code,$u['id']??null,$name,$phone,$address,$total,$shipping,$key,$fingerprint]);$id=(int)db()->lastInsertId();
+  $code='NS-'.strtoupper(bin2hex(random_bytes(10)));query('INSERT INTO ns_orders(code,user_id,name,phone,address,total,shipping,checkout_key,request_hash) VALUES (?,?,?,?,?,?,?,?,?)',[$code,$u['id']??null,$name,$phone,$addressWithPostal,$total,$shipping,$key,$fingerprint]);$id=(int)db()->lastInsertId();
   foreach($lines as [$p,$qty,$price]){query('INSERT INTO ns_order_items(order_id,product_id,name,quantity,price) VALUES (?,?,?,?,?)',[$id,$p['id'],$p['name'],$qty,$price]);query('UPDATE ns_products SET stock=stock-?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?',[$qty,$p['id']]);}
   return ['id'=>$id,'code'=>$code,'total'=>$total];
  });
@@ -47,7 +67,7 @@ function checkout(): never {
  catch(Throwable $e){release_order($order['id']);unset($_SESSION['checkout_key']);throw $e;}
 }
 function payment_callback(): never {
- $authority=$_GET['Authority']??'';if(!is_string($authority)||!preg_match('/^A[a-zA-Z0-9]{35}$/',$authority))redirect('/track?payment=invalid');
+ $authority=$_GET['Authority']??'';if(!is_string($authority)||!preg_match('/^[a-zA-Z0-9]{36}$/',$authority))redirect('/track?payment=invalid');
  rate_limit('verify:'.$authority,15);$o=one('SELECT * FROM ns_orders WHERE authority=?',[$authority]);if(!$o)redirect('/track?payment=invalid');
  $result='failed';
  if(in_array($o['status'],['PAID','SHIPPED','DELIVERED'],true))$result='success';
