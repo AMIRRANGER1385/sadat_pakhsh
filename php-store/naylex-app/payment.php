@@ -44,7 +44,11 @@ function release_order(int $id): void {
  foreach(all('SELECT * FROM ns_order_items WHERE order_id=?',[$id]) as $i)query('UPDATE ns_products SET stock=stock+?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?',[$i['quantity'],$i['product_id']]);});
 }
 function checkout(): never {
- $u=current_user();$name=text_input('name',3,120);$phone=phone_input();$postal=digits(text_input('postal_code',10,10));$address=text_input('address',15,1000);$key=text_input('checkout_key',64,64);
+ $u=current_user();
+ $data=$_POST;
+ $profile=saved_checkout_profile();
+ if($profile)foreach(['name','phone','postal_code','address'] as $field){$value=$data[$field]??'';if(!is_string($value)||trim($value)==='')$data[$field]=$profile[$field];}
+ $name=text_input('name',3,120,$data);$phone=digits(text_input('phone',11,11,$data));if(!preg_match('/^09\d{9}$/',$phone))throw new ShopError('شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.');$postal=digits(text_input('postal_code',10,10,$data));$address=text_input('address',15,1000,$data);$key=text_input('checkout_key',64,64);
  if(!preg_match('/^\d{10}$/',$postal))throw new ShopError('کد پستی باید ۱۰ رقم باشد.');
  $_SESSION['checkout_profile']=['name'=>$name,'phone'=>$phone,'postal_code'=>$postal,'address'=>$address];
  $addressWithPostal=checkout_address_with_postal($address,$postal);
@@ -53,7 +57,15 @@ function checkout(): never {
  $cart=$_SESSION['cart']??[];ksort($cart,SORT_NUMERIC);if(!$cart||count($cart)>100)throw new ShopError('سبد خرید خالی یا نامعتبر است.');
  $fingerprint=hash('sha256',json_encode([$name,$phone,$postal,$addressWithPostal,$cart,$u['id']??null],JSON_UNESCAPED_UNICODE));
  $old=one('SELECT * FROM ns_orders WHERE checkout_key=?',[$key]);
- if($old){if(!hash_equals($old['request_hash'],$fingerprint))throw new ShopError('اطلاعات سفارش تغییر کرده؛ از سبد خرید دوباره وارد تسویه شوید.');if($old['status']==='PENDING'&&$old['authority'])redirect(payment_url($old['authority']));redirect('/track?code='.$old['code']);}
+ if($old){
+  if(!hash_equals($old['request_hash'],$fingerprint))throw new ShopError('اطلاعات سفارش تغییر کرده؛ از سبد خرید دوباره وارد تسویه شوید.');
+  if($old['status']==='PENDING'){
+   // برای جلوگیری از گیرکردن روی یک authority قدیمی/نامعتبر، در هر تلاش جدید پرداخت را از نو می‌سازیم.
+   release_order((int)$old['id']);
+   $key=bin2hex(random_bytes(32));
+   $_SESSION['checkout_key']=$key;
+  } else redirect('/track?code='.$old['code']);
+ }
  if(!config('merchant_id'))throw new ShopError('درگاه هنوز توسط مدیر فعال نشده است.');
  $order=transaction(function()use($u,$cart,$name,$phone,$addressWithPostal,$key,$fingerprint){$lines=[];$sum=0;
   foreach($cart as $id=>$qty){$qty=(int)$qty;if($qty<1||$qty>1000)throw new ShopError('تعداد خرید نامعتبر است.');$p=one('SELECT * FROM ns_products WHERE id=? FOR UPDATE',[$id]);if(!$p||!$p['active']||(int)$p['stock']<$qty)throw new ShopError('موجودی یکی از محصولات کافی نیست.');$price=unit_price($p,$qty);$lines[]=[$p,$qty,$price];$sum+=$price*$qty;}
