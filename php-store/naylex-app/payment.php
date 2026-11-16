@@ -51,6 +51,7 @@ function checkout(): never {
  $name=text_input('name',3,120,$data);$phone=digits(text_input('phone',11,11,$data));if(!preg_match('/^09\d{9}$/',$phone))throw new ShopError('شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.');$postal=digits(text_input('postal_code',10,10,$data));$address=text_input('address',15,1000,$data);$key=text_input('checkout_key',64,64);
  if(!preg_match('/^\d{10}$/',$postal))throw new ShopError('کد پستی باید ۱۰ رقم باشد.');
  $_SESSION['checkout_profile']=['name'=>$name,'phone'=>$phone,'postal_code'=>$postal,'address'=>$address];
+ if($u)touch_user_shipping_profile((int)$u['id'],$phone,$postal,$address);
  $addressWithPostal=checkout_address_with_postal($address,$postal);
  if(!preg_match('/^[a-f0-9]{64}$/',$key)||!hash_equals($_SESSION['checkout_key']??'', $key))throw new ShopError('شناسه سبد معتبر نیست؛ صفحه تسویه را تازه کنید.');
  rate_limit('checkout-global',80);rate_limit('checkout-phone:'.$phone,8);

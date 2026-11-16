@@ -13,7 +13,8 @@ export async function GET(req:NextRequest) {
  try {
  if(['PAID','SHIPPED','DELIVERED'].includes(order.status))result='success';
  else if(order.status==='PENDING') {
- const verified=await gateway('verify',{authority,amount:order.total*10});
+ const payable=Math.max(0,order.total-order.shipping);
+ const verified=await gateway('verify',{authority,amount:payable*10});
  await db.order.updateMany({where:{id:order.id,status:'PENDING'},data:{status:'PAID',reference:String(verified.ref_id)}});result='success';
  }
  }catch{result='retry';}

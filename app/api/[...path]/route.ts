@@ -60,7 +60,7 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{path:string
  if(subtotal+shipping>200000000) throw new PublicError('مبلغ سفارش بیش از سقف مجاز است.');
  return tx.order.create({data:{checkoutKey:v.checkoutKey,requestHash,code:'SP-'+randomBytes(8).toString('hex').toUpperCase(),name:v.name,phone:v.phone,address:v.address,total:subtotal+shipping,shipping,userId:user?.id,items:{create:lines}}});
  });
- try {const payment=await gateway('request',{amount:order.total*10,callback_url:`${process.env.APP_URL}/api/payment/callback`,description:`سفارش ${order.code}`,metadata:{mobile:order.phone}});await db.order.update({where:{id:order.id},data:{authority:payment.authority}});return NextResponse.json({url:paymentURL(payment.authority),code:order.code});}
+ try {const payable=Math.max(0,order.total-order.shipping);const payment=await gateway('request',{amount:payable*10,callback_url:`${process.env.APP_URL}/api/payment/callback`,description:`سفارش ${order.code}`,metadata:{mobile:order.phone}});await db.order.update({where:{id:order.id},data:{authority:payment.authority}});return NextResponse.json({url:paymentURL(payment.authority),code:order.code});}
  catch(error) {await db.$transaction(async tx=>{const changed=await tx.order.updateMany({where:{id:order.id,status:'PENDING',authority:null},data:{status:'CANCELLED'}});if(!changed.count)return;const items=await tx.orderItem.findMany({where:{orderId:order.id}});for(const i of items)await tx.product.update({where:{id:i.productId},data:{stock:{increment:i.quantity}}});});throw error;}
  }
  if(route.startsWith('admin/')) {
