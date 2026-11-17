@@ -55,7 +55,7 @@ function checkout(): never {
  $addressWithPostal=checkout_address_with_postal($address,$postal);
  if(!preg_match('/^[a-f0-9]{64}$/',$key)||!hash_equals($_SESSION['checkout_key']??'', $key))throw new ShopError('شناسه سبد معتبر نیست؛ صفحه تسویه را تازه کنید.');
  rate_limit('checkout-global',80);rate_limit('checkout-phone:'.$phone,8);
- $cart=$_SESSION['cart']??[];ksort($cart,SORT_NUMERIC);if(!$cart||count($cart)>100)throw new ShopError('سبد خرید خالی یا نامعتبر است.');
+ $cart=$_SESSION['cart']??[];ksort($cart,SORT_NUMERIC);if(!$cart||count($cart)>100)throw new ShopError('سبد خرید خالی یا نامعتبر است.');$reserved=!empty($_SESSION['cart_stock_reserved']);
  $fingerprint=hash('sha256',json_encode([$name,$phone,$postal,$addressWithPostal,$cart,$u['id']??null],JSON_UNESCAPED_UNICODE));
  $old=one('SELECT * FROM ns_orders WHERE checkout_key=?',[$key]);
  if($old){
@@ -68,16 +68,17 @@ function checkout(): never {
   } else redirect('/track?code='.$old['code']);
  }
  if(!config('merchant_id'))throw new ShopError('درگاه هنوز توسط مدیر فعال نشده است.');
- $order=transaction(function()use($u,$cart,$name,$phone,$addressWithPostal,$key,$fingerprint){$lines=[];$sum=0;
-  foreach($cart as $id=>$qty){$qty=(int)$qty;if($qty<1||$qty>1000)throw new ShopError('تعداد خرید نامعتبر است.');$p=one('SELECT * FROM ns_products WHERE id=? FOR UPDATE',[$id]);if(!$p||!$p['active']||(int)$p['stock']<$qty)throw new ShopError('موجودی یکی از محصولات کافی نیست.');$price=unit_price($p,$qty);$lines[]=[$p,$qty,$price];$sum+=$price*$qty;}
+ $order=transaction(function()use($u,$cart,$name,$phone,$addressWithPostal,$key,$fingerprint,$reserved){$lines=[];$sum=0;
+  foreach($cart as $id=>$qty){$qty=(int)$qty;if($qty<1||$qty>1000)throw new ShopError('تعداد خرید نامعتبر است.');$p=one('SELECT * FROM ns_products WHERE id=? FOR UPDATE',[$id]);if(!$p||!$p['active'])throw new ShopError('یکی از محصولات دیگر قابل سفارش نیست.');if(!$reserved&&(int)$p['stock']<$qty)throw new ShopError('موجودی یکی از محصولات کافی نیست.');$price=unit_price($p,$qty);$lines[]=[$p,$qty,$price];$sum+=$price*$qty;}
   $shipping=shipping_cost($sum,settings());$total=$sum+$shipping;if($total>200000000)throw new ShopError('مبلغ سفارش بیش از سقف مجاز است.');
   $code='NS-'.strtoupper(bin2hex(random_bytes(10)));query('INSERT INTO ns_orders(code,user_id,name,phone,address,total,shipping,checkout_key,request_hash) VALUES (?,?,?,?,?,?,?,?,?)',[$code,$u['id']??null,$name,$phone,$addressWithPostal,$total,$shipping,$key,$fingerprint]);$id=(int)db()->lastInsertId();
-  foreach($lines as [$p,$qty,$price]){query('INSERT INTO ns_order_items(order_id,product_id,name,quantity,price) VALUES (?,?,?,?,?)',[$id,$p['id'],$p['name'],$qty,$price]);query('UPDATE ns_products SET stock=stock-?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?',[$qty,$p['id']]);}
+  foreach($lines as [$p,$qty,$price]){query('INSERT INTO ns_order_items(order_id,product_id,name,quantity,price) VALUES (?,?,?,?,?)',[$id,$p['id'],$p['name'],$qty,$price]);if(!$reserved)query('UPDATE ns_products SET stock=stock-?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?',[$qty,$p['id']]);}
   return ['id'=>$id,'code'=>$code,'total'=>$total];
  });
  $_SESSION['last_order']=$order['code'];
+ unset($_SESSION['cart'],$_SESSION['cart_updated_at'],$_SESSION['cart_stock_reserved']);
  try{$payable=max(0,(int)$order['total']-(int)$order['shipping']);$r=gateway('request',['amount'=>$payable*10,'callback_url'=>url('/api/payment/callback'),'description'=>'سفارش '.$order['code'],'metadata'=>['mobile'=>$phone]]);if(query("UPDATE ns_orders SET authority=? WHERE id=? AND status='PENDING'",[$r['authority'],$order['id']])->rowCount()!==1)throw new ShopError('مهلت سفارش پایان یافته است؛ سفارش جدید ثبت کنید.');analytics_event('payment_started',null,(int)$order['id']);redirect(payment_url($r['authority']));}
- catch(Throwable $e){release_order($order['id']);unset($_SESSION['checkout_key']);throw $e;}
+ catch(Throwable $e){release_order($order['id']);$_SESSION['cart']=$cart;$_SESSION['cart_updated_at']=time();$_SESSION['cart_stock_reserved']=false;unset($_SESSION['checkout_key']);throw $e;}
 }
 function payment_callback(): never {
  $authority=$_GET['Authority']??'';if(!is_string($authority)||!preg_match('/^[a-zA-Z0-9]{36}$/',$authority))redirect('/track?payment=invalid');
@@ -85,6 +86,6 @@ function payment_callback(): never {
  $result='failed';
  if(in_array($o['status'],['PAID','SHIPPED','DELIVERED'],true))$result='success';
  else{try{$state=verify_order_payment((int)$o['id']);$result=$state==='PAYMENT_REVIEW'?'review':'success';}catch(Throwable){$result='retry';}}
- if($result==='success'){analytics_event('purchase',null,(int)$o['id']);if(($_SESSION['last_order']??'')===$o['code'])unset($_SESSION['cart'],$_SESSION['checkout_key']);}
+ if($result==='success'){analytics_event('purchase',null,(int)$o['id']);if(($_SESSION['last_order']??'')===$o['code'])unset($_SESSION['cart'],$_SESSION['checkout_key'],$_SESSION['cart_updated_at'],$_SESSION['cart_stock_reserved']);}
  redirect('/track?code='.$o['code'].'&payment='.$result);
 }

@@ -14,21 +14,41 @@ function handle_action(): never {
   $password=password_input('password');
   transaction(function()use($username,$name,$password){query('INSERT INTO ns_users(username,name,password,wholesale_status) VALUES (?,?,?,?)',[$username,$name,password_hash($password,PASSWORD_BCRYPT,['cost'=>12]),'NONE']);login_user(one('SELECT * FROM ns_users WHERE id=?',[db()->lastInsertId()]),'REGISTER');});redirect('/account');
  }
- if($action==='switch_account'){$destination=$_POST['destination']??'/login';if(!in_array($destination,['/login','/register','/wholesale'],true))$destination='/login';$cart=$_SESSION['cart']??[];$cartUpdated=$_SESSION['cart_updated_at']??time();$_SESSION=['cart'=>$cart,'cart_updated_at'=>$cartUpdated];session_regenerate_id(true);redirect($destination);}
+ if($action==='switch_account'){$destination=$_POST['destination']??'/login';if(!in_array($destination,['/login','/register','/wholesale'],true))$destination='/login';$cart=$_SESSION['cart']??[];$cartUpdated=$_SESSION['cart_updated_at']??time();$reserved=!empty($_SESSION['cart_stock_reserved']);$_SESSION=['cart'=>$cart,'cart_updated_at'=>$cartUpdated,'cart_stock_reserved'=>$reserved];session_regenerate_id(true);redirect($destination);} 
  if($action==='password_reset')password_reset_action();
- if($action==='logout'){$_SESSION=[];session_regenerate_id(true);redirect('/');}
+ if($action==='logout'){if(!empty($_SESSION['cart_stock_reserved']))release_cart_reservations();$_SESSION=[];session_regenerate_id(true);redirect('/');}
  if($action==='password'){$u=current_user();if(!$u)throw new ShopError('ابتدا وارد شوید.',401);rate_limit('password:'.$u['id'],5);$old=$_POST['current_password']??'';if(!is_string($old)||strlen($old)>72||!password_verify($old,$u['password']))throw new ShopError('رمز فعلی نادرست است.');$password=password_input('new_password');query('UPDATE ns_users SET password=?,session_version=session_version+1 WHERE id=?',[password_hash($password,PASSWORD_BCRYPT,['cost'=>12]),$u['id']]);login_user(one('SELECT * FROM ns_users WHERE id=?',[$u['id']]),'PASSWORD_CHANGE');flash('رمز تغییر کرد و نشست‌های قبلی باطل شدند.');redirect('/account');}
  if($action==='profile'){$u=current_user();if(!$u)throw new ShopError('ابتدا وارد شوید.',401);$name=text_input('name',3,120);$national=digits(text_input('national_code',10,10));$phone=digits(text_input('profile_phone',11,11));$postal=digits(text_input('postal_code',10,10));$address=text_input('address',15,1000);if(!valid_national_code($national))throw new ShopError('کد ملی معتبر نیست.');if(!preg_match('/^09\d{9}$/',$phone))throw new ShopError('شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.');if(!preg_match('/^\d{10}$/',$postal))throw new ShopError('کد پستی باید ۱۰ رقم باشد.');query('UPDATE ns_users SET name=? WHERE id=?',[$name,$u['id']]);save_user_profile((int)$u['id'],$national,$phone,$postal,$address);flash('اطلاعات حساب ذخیره شد.');redirect('/account');}
  if($action==='2fa_login'){$id=(int)($_SESSION['pending_2fa_user']??0);if(!$id||($_SESSION['pending_2fa_expires']??0)<time())throw new ShopError('مهلت تأیید ورود پایان یافته است.',401);rate_limit('2fa-login:'.$id,8);$row=admin_two_factor($id);$u=one("SELECT * FROM ns_users WHERE id=? AND role='ADMIN'",[$id]);if(!$row||!$u||!verify_two_factor_value($row,text_input('two_factor_code',6,30)))throw new ShopError('کد ورود دومرحله‌ای نادرست است.');unset($_SESSION['pending_2fa_user'],$_SESSION['pending_2fa_expires']);login_user($u,'LOGIN_2FA');redirect('/admin');}
  if($action==='review'){$u=current_user();if(!$u||$u['role']!=='CUSTOMER')throw new ShopError('برای ثبت نظر وارد حساب مشتری شوید.',401);$id=number_input('id',1,PHP_INT_MAX);if(!verified_buyer((int)$u['id'],$id))throw new ShopError('ثبت نظر فقط برای خریدار تأییدشده این محصول فعال است.',403);$rating=number_input('rating',1,5);$body=text_input('body',10,1500);query('INSERT INTO ns_reviews(product_id,user_id,rating,body,approved) VALUES (?,?,?,?,0) ON DUPLICATE KEY UPDATE rating=VALUES(rating),body=VALUES(body),approved=0,created_at=UTC_TIMESTAMP()',[$id,$u['id'],$rating,$body]);$p=one('SELECT slug FROM ns_products WHERE id=?',[$id])??throw new ShopError('محصول پیدا نشد.',404);flash('نظر شما ثبت شد و پس از بررسی مدیر نمایش داده می‌شود.');redirect('/products/'.$p['slug'].'#reviews');}
  if(in_array($action,['cart_add','cart_set','cart_remove','cart_decrease'],true)){
   $id=number_input('id',1,PHP_INT_MAX);$qty=$action==='cart_remove'?0:number_input($action==='cart_set'&&isset($_POST['requested_quantity'])?'requested_quantity':'quantity',1,1000);
-  $p=one('SELECT * FROM ns_products WHERE id=? AND active=1',[$id]);if(!$p&&$action!=='cart_remove')throw new ShopError('محصول موجود نیست.');
-  if($action==='cart_decrease')$qty=max(0,(int)($_SESSION['cart'][$id]??0)-1);
-  if($action==='cart_add')$qty+=(int)($_SESSION['cart'][$id]??0);
+  $sessionReserved=!empty($_SESSION['cart_stock_reserved']);
+  $existing=(int)($_SESSION['cart'][$id]??0);
+  if($action==='cart_decrease')$qty=max(0,$existing-1);
+  if($action==='cart_add')$qty+=$existing;
   if($qty>0&&!isset($_SESSION['cart'][$id])&&count($_SESSION['cart']??[])>=100)throw new ShopError('سبد خرید حداکثر ۱۰۰ محصول متفاوت می‌پذیرد.');
-  if($qty>1000||($action!=='cart_decrease'&&$p&&$qty>(int)$p['stock']))throw new ShopError('موجودی کافی نیست.');
-  if($qty)$_SESSION['cart'][$id]=$qty;else unset($_SESSION['cart'][$id]);$_SESSION['cart_updated_at']=time();unset($_SESSION['checkout_key']);if($action==='cart_add')analytics_event('add_to_cart',$id);if(($_SERVER['HTTP_ACCEPT']??'')==='application/json'){$data=cart_preview_data();if(!session_write_close())throw new ShopError('ذخیره سبد انجام نشد.',503);header('Content-Type: application/json; charset=utf-8');echo json_encode($data,JSON_UNESCAPED_UNICODE);exit;}flash('سبد خرید به‌روز شد.');redirect('/cart');
+  if($qty>1000)throw new ShopError('موجودی کافی نیست.');
+  $delta=$qty-$existing;
+  if(!$sessionReserved&&$delta>0){if(!empty($_SESSION['cart']))reserve_cart_reservations();$_SESSION['cart_stock_reserved']=true;$sessionReserved=true;}
+  if($delta!==0&&$sessionReserved){
+   transaction(function()use($id,$delta,$action){
+    $row=one('SELECT id,active,stock FROM ns_products WHERE id=? FOR UPDATE',[$id]);
+    if($delta>0){
+     if(!$row||(int)$row['active']!==1)throw new ShopError('محصول موجود نیست.');
+     if((int)$row['stock']<$delta)throw new ShopError('موجودی کافی نیست.');
+     query('UPDATE ns_products SET stock=stock-?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?',[$delta,$id]);
+    }elseif($row){
+     query('UPDATE ns_products SET stock=stock+?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?',[-$delta,$id]);
+    }
+   });
+  }
+  if($qty)$_SESSION['cart'][$id]=$qty;else unset($_SESSION['cart'][$id]);
+  if(!empty($_SESSION['cart'])){$_SESSION['cart_updated_at']=time();if($sessionReserved)$_SESSION['cart_stock_reserved']=true;else unset($_SESSION['cart_stock_reserved']);}else unset($_SESSION['cart_updated_at'],$_SESSION['cart_stock_reserved']);
+  unset($_SESSION['checkout_key']);
+  if($action==='cart_add')analytics_event('add_to_cart',$id);
+  if(($_SERVER['HTTP_ACCEPT']??'')==='application/json'){$data=cart_preview_data();if(!session_write_close())throw new ShopError('ذخیره سبد انجام نشد.',503);header('Content-Type: application/json; charset=utf-8');echo json_encode($data,JSON_UNESCAPED_UNICODE);exit;}
+  flash('سبد خرید به‌روز شد.');redirect('/cart');
  }
  if($action==='checkout')checkout();
  if($action==='track'){$code=strtoupper(text_input('code',8,40));$phone=phone_input();rate_limit('track-global',150);rate_limit('track:'.$phone,20);$o=one('SELECT id,code,status,total,reference,shipping FROM ns_orders WHERE code=? AND phone=?',[$code,$phone]);if(!$o)throw new ShopError('سفارشی با این مشخصات پیدا نشد.');$_SESSION['tracked_order']=$o['id'];analytics_event('order_tracking',null,(int)$o['id']);redirect('/track');}

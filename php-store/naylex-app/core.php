@@ -40,7 +40,26 @@ function asset_url(string $name): string {
 }
 function redirect(string $path,int $status=303): never {if(session_status()===PHP_SESSION_ACTIVE&&!session_write_close())throw new ShopError('ذخیره نشست انجام نشد؛ مدیر هاست باید فضای دیسک و مجوز پوشه نشست را بررسی کند.',503);header('Location: '.$path,true,$status);exit;}
 function flash(string $message,string $kind='success'): void {$_SESSION['flash']=[$kind,$message];}
-function expire_cart_if_stale(int $now): bool {if(!empty($_SESSION['cart'])&&($_SESSION['cart_updated_at']??0)<$now-86400){unset($_SESSION['cart'],$_SESSION['cart_updated_at'],$_SESSION['checkout_key']);$_SESSION['cart_expired']=true;return true;}return false;}
+function cart_hold_seconds(): int {return 15*60;}
+function reserve_cart_reservations(?array $cart=null): void {
+ $cart=$cart??($_SESSION['cart']??[]);
+ if(!$cart||!is_array($cart))return;
+ transaction(function()use($cart){foreach($cart as$id=>$qty){$id=(int)$id;$qty=(int)$qty;if($id<1||$qty<1)continue;$p=one('SELECT id,active,stock FROM ns_products WHERE id=? FOR UPDATE',[$id]);if(!$p||(int)$p['active']!==1)throw new ShopError('یکی از محصولات سبد دیگر قابل سفارش نیست.');if((int)$p['stock']<$qty)throw new ShopError('موجودی یکی از محصولات کافی نیست.');query('UPDATE ns_products SET stock=stock-?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?',[$qty,$id]);}});
+}
+function release_cart_reservations(?array $cart=null): void {
+ $cart=$cart??($_SESSION['cart']??[]);
+ if(!$cart||!is_array($cart))return;
+ transaction(function()use($cart){foreach($cart as$id=>$qty){$id=(int)$id;$qty=(int)$qty;if($id<1||$qty<1)continue;query('UPDATE ns_products SET stock=stock+?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?',[$qty,$id]);}});
+}
+function expire_cart_if_stale(int $now): bool {
+ if(!empty($_SESSION['cart'])&&($_SESSION['cart_updated_at']??0)<$now-cart_hold_seconds()){
+  if(!empty($_SESSION['cart_stock_reserved']))release_cart_reservations();
+  unset($_SESSION['cart'],$_SESSION['cart_updated_at'],$_SESSION['checkout_key'],$_SESSION['cart_stock_reserved']);
+  $_SESSION['cart_expired']=true;
+  return true;
+ }
+ return false;
+}
 function csrf(): string {return $_SESSION['csrf']??=bin2hex(random_bytes(32));}
 function csrf_field(): void {echo '<input type="hidden" name="_csrf" value="'.h(csrf()).'">';}
 function verify_csrf(): void {
