@@ -83,7 +83,7 @@ function settings(): array {
  return $settings;
 }
 function unit_price(array $p,int $qty,bool $unused=false): int {if(is_wholesale_product($p))return wholesale_tier_for_quantity($p,$qty)['price'];return (int)($qty>=(int)$p['minimum']?$p['wholesale']:$p['retail']);}
-function shipping_cost(int $sum,array $s): int {return (int)$s['free_above']>0&&$sum>=(int)$s['free_above']?0:(int)$s['shipping'];}
+function shipping_cost(int $sum,array $s): int {return 0;}
 function cart_lines(): array {
  $cart=$_SESSION['cart']??[];if(!$cart)return [];
  $u=current_user();$items=[];$products=[];
