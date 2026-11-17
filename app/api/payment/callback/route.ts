@@ -9,14 +9,15 @@ export async function GET(req:NextRequest) {
  try{await rateLimit('callback:'+authority,15)}catch{return NextResponse.redirect(new URL('/track?payment=retry',base))}
  const order=await db.order.findUnique({where:{authority}});
  if(!order)return NextResponse.redirect(new URL('/track?payment=invalid',base));
- let result='failed';
+ let result='failed',trackKey=order.reference||order.code;
  try {
- if(['PAID','SHIPPED','DELIVERED'].includes(order.status))result='success';
+ if(['PAID','PREPARING','SHIPPED','DELIVERED'].includes(order.status))result='success';
  else if(order.status==='PENDING') {
  const payable=Math.max(0,order.total-order.shipping);
  const verified=await gateway('verify',{authority,amount:payable*10});
- await db.order.updateMany({where:{id:order.id,status:'PENDING'},data:{status:'PAID',reference:String(verified.ref_id)}});result='success';
+ trackKey=String(verified.ref_id);
+ await db.order.updateMany({where:{id:order.id,status:'PENDING'},data:{status:'PAID',reference:trackKey}});result='success';
  }
  }catch{result='retry';}
- return NextResponse.redirect(new URL(`/track?code=${order.code}&payment=${result}`,base));
+ return NextResponse.redirect(new URL(`/track?key=${trackKey}&payment=${result}`,base));
 }

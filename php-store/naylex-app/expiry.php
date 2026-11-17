@@ -20,7 +20,7 @@ function verify_order_payment(int $id, ?callable $transport=null): string {
   $o=one('SELECT * FROM ns_orders WHERE id=? FOR UPDATE',[$id]);
   if(!$o||!$o['authority'])throw new ShopError('سفارش برای بررسی پرداخت مناسب نیست.');
   if(in_array($o['status'],['PAID','SHIPPED','DELIVERED'],true))return $o['status'];
-  $r=$transport('verify',['authority'=>$o['authority'],'amount'=>(int)$o['total']*10]);
+  $payable=max(0,(int)$o['total']-(int)$o['shipping']);$r=$transport('verify',['authority'=>$o['authority'],'amount'=>$payable*10]);
   return record_verified_payment($o,(string)$r['ref_id']);
  });
 }
@@ -35,7 +35,7 @@ function expire_order(int $id, ?callable $transport=null): string {
   if($o['authority']){
    $r=$transport('inquiry',['authority'=>$o['authority']]);
    if(in_array($r['status']??'', ['PAID','VERIFIED'],true)){
-    $v=$transport('verify',['authority'=>$o['authority'],'amount'=>(int)$o['total']*10]);
+    $payable=max(0,(int)$o['total']-(int)$o['shipping']);$v=$transport('verify',['authority'=>$o['authority'],'amount'=>$payable*10]);
     record_verified_payment($o,(string)$v['ref_id']);return 'paid';
    }
    if(!in_array($r['status']??'', ['FAILED','REVERSED'],true))return 'deferred';

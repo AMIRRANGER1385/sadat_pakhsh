@@ -40,8 +40,9 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{path:string
  if(route==='auth/password'){if(!user)throw new PublicError('ابتدا وارد شوید.',401);await rateLimit('password:'+user.id,5);const v=z.object({currentPassword:z.string().min(1).max(72),newPassword:passwordSchema}).parse(data);if(!await compare(v.currentPassword,user.password))throw new PublicError('رمز فعلی نادرست است.');const nextPassword=await hash(v.newPassword,12);await db.$transaction(async tx=>{await tx.user.update({where:{id:user.id},data:{password:nextPassword}});await tx.session.deleteMany({where:{userId:user.id}})});await createSession(user.id,{kind:'PASSWORD_CHANGE',userAgent:req.headers.get('user-agent')||''});return NextResponse.json({ok:true});}
  if(route==='auth/logout') { const token=(await cookies()).get('session')?.value;if(token)await db.session.deleteMany({where:{id:digest(token)}});(await cookies()).delete('session');return NextResponse.json({redirect:'/'}); }
  if(route==='track') {
- const v=z.object({code:z.string().min(8).max(40),phone}).parse(data);await rateLimit('track:'+v.phone,20);
- const order=await db.order.findFirst({where:v,select:{code:true,status:true,total:true,shipping:true,createdAt:true,reference:true,items:{select:{name:true,quantity:true,price:true}}}});
+ const v=z.object({key:z.string().min(6).max(60),phone:phone.optional()}).parse(data);await rateLimit('track:'+(v.phone||v.key),20);
+ const where=v.phone?{OR:[{code:v.key,phone:v.phone},{reference:v.key,phone:v.phone}]}:{OR:[{code:v.key},{reference:v.key}]};
+ const order=await db.order.findFirst({where,select:{code:true,status:true,total:true,shipping:true,createdAt:true,reference:true,items:{select:{name:true,quantity:true,price:true}}}});
  if(!order) throw new PublicError('سفارشی با این مشخصات پیدا نشد.');return NextResponse.json(order);
  }
  if(route==='checkout') {
@@ -73,8 +74,8 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{path:string
  else if(route==='admin/company') await db.settings.update({where:{id:'shop'},data:companySchema.parse(data)});
  else if(route==='admin/settings') await db.settings.update({where:{id:'shop'},data:z.object({shipping:integer,freeAbove:integer}).parse(data)});
  else if(route==='admin/order') {
- const id=z.string().parse(data.id),status=z.enum(['SHIPPED','DELIVERED','CANCELLED']).parse(data.status);
- await db.$transaction(async tx=>{const o=await tx.order.findUniqueOrThrow({where:{id},include:{items:true}});const allowed:Record<string,string[]>={PAID:['SHIPPED'],SHIPPED:['DELIVERED'],PENDING:['CANCELLED']};if(!allowed[o.status]?.includes(status))throw new PublicError('تغییر وضعیت مجاز نیست؛ پرداخت فقط توسط درگاه تأیید می‌شود.');if(status==='CANCELLED' && o.authority)throw new PublicError('سفارش دارای درخواست پرداخت را ابتدا در درگاه بررسی کنید.');const changed=await tx.order.updateMany({where:{id,status:o.status},data:{status}});if(!changed.count)throw new PublicError('وضعیت سفارش تغییر کرده؛ صفحه را تازه کنید.');if(status==='CANCELLED')for(const i of o.items)await tx.product.update({where:{id:i.productId},data:{stock:{increment:i.quantity}}});});
+ const id=z.string().parse(data.id),status=z.enum(['PREPARING','SHIPPED','DELIVERED','CANCELLED']).parse(data.status);
+ await db.$transaction(async tx=>{const o=await tx.order.findUniqueOrThrow({where:{id},include:{items:true}});const allowed:Record<string,string[]>={PAID:['PREPARING'],PREPARING:['SHIPPED'],SHIPPED:['DELIVERED'],PENDING:['CANCELLED']};if(!allowed[o.status]?.includes(status))throw new PublicError('تغییر وضعیت مجاز نیست؛ پرداخت فقط توسط درگاه تأیید می‌شود.');if(status==='CANCELLED' && o.authority)throw new PublicError('سفارش دارای درخواست پرداخت را ابتدا در درگاه بررسی کنید.');const changed=await tx.order.updateMany({where:{id,status:o.status},data:{status}});if(!changed.count)throw new PublicError('وضعیت سفارش تغییر کرده؛ صفحه را تازه کنید.');if(status==='CANCELLED')for(const i of o.items)await tx.product.update({where:{id:i.productId},data:{stock:{increment:i.quantity}}});});
  } else return NextResponse.json({error:'مسیر پیدا نشد'},{status:404});
  return NextResponse.json({ok:true});
  }

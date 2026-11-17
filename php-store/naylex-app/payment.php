@@ -76,7 +76,7 @@ function checkout(): never {
   return ['id'=>$id,'code'=>$code,'total'=>$total];
  });
  $_SESSION['last_order']=$order['code'];
- try{$r=gateway('request',['amount'=>$order['total']*10,'callback_url'=>url('/api/payment/callback'),'description'=>'سفارش '.$order['code'],'metadata'=>['mobile'=>$phone]]);if(query("UPDATE ns_orders SET authority=? WHERE id=? AND status='PENDING'",[$r['authority'],$order['id']])->rowCount()!==1)throw new ShopError('مهلت سفارش پایان یافته است؛ سفارش جدید ثبت کنید.');analytics_event('payment_started',null,(int)$order['id']);redirect(payment_url($r['authority']));}
+ try{$payable=max(0,(int)$order['total']-(int)$order['shipping']);$r=gateway('request',['amount'=>$payable*10,'callback_url'=>url('/api/payment/callback'),'description'=>'سفارش '.$order['code'],'metadata'=>['mobile'=>$phone]]);if(query("UPDATE ns_orders SET authority=? WHERE id=? AND status='PENDING'",[$r['authority'],$order['id']])->rowCount()!==1)throw new ShopError('مهلت سفارش پایان یافته است؛ سفارش جدید ثبت کنید.');analytics_event('payment_started',null,(int)$order['id']);redirect(payment_url($r['authority']));}
  catch(Throwable $e){release_order($order['id']);unset($_SESSION['checkout_key']);throw $e;}
 }
 function payment_callback(): never {
