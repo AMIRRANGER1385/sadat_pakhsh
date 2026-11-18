@@ -51,7 +51,7 @@ function handle_action(): never {
   flash('سبد خرید به‌روز شد.');redirect('/cart');
  }
  if($action==='checkout')checkout();
- if($action==='track'){$code=strtoupper(text_input('code',8,40));$phone=phone_input();rate_limit('track-global',150);rate_limit('track:'.$phone,20);$o=one('SELECT id,code,status,total,reference,shipping FROM ns_orders WHERE code=? AND phone=?',[$code,$phone]);if(!$o)throw new ShopError('سفارشی با این مشخصات پیدا نشد.');$_SESSION['tracked_order']=$o['id'];analytics_event('order_tracking',null,(int)$o['id']);redirect('/track');}
+ if($action==='track'){$code=strtoupper(text_input('code',6,40));$phone=phone_input();rate_limit('track-global',150);rate_limit('track:'.$phone,20);$o=one('SELECT id,code,status,total,reference,shipping FROM ns_orders WHERE code=? AND phone=?',[$code,$phone]);if(!$o)throw new ShopError('سفارشی با این مشخصات پیدا نشد.');$_SESSION['tracked_order']=$o['id'];analytics_event('order_tracking',null,(int)$o['id']);redirect('/track');}
  if($action==='support_message')support_message_action();
  $admin=admin_user();rate_limit('admin:'.$admin['id'],400);
  foreach(['font_size','font_body','font_h1','font_h2','font_h3'] as$fontField)validate_content_font($fontField);

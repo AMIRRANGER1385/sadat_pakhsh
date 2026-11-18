@@ -45,13 +45,22 @@ function release_order(int $id): void {
 }
 function checkout(): never {
  $u=current_user();
+ $userId=(int)($u['id']??0);
  $data=$_POST;
  $profile=saved_checkout_profile();
  if($profile)foreach(['name','phone','postal_code','address'] as $field){$value=$data[$field]??'';if(!is_string($value)||trim($value)==='')$data[$field]=$profile[$field];}
- $name=text_input('name',3,120,$data);$phone=digits(text_input('phone',11,11,$data));if(!preg_match('/^09\d{9}$/',$phone))throw new ShopError('شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.');$postal=digits(text_input('postal_code',10,10,$data));$address=text_input('address',15,1000,$data);$key=text_input('checkout_key',64,64);
+ $name=text_input('name',3,120,$data);$phone=digits(text_input('phone',11,11,$data));if(!preg_match('/^09\d{9}$/',$phone))throw new ShopError('شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.');
+ $useNewAddress=isset($data['use_new_address'])&&(string)$data['use_new_address']==='1';
+ $selectedAddressId=0;
+ if(isset($data['saved_address_id'])&&is_scalar($data['saved_address_id'])){$rawId=digits((string)$data['saved_address_id']);if($rawId!==''&&preg_match('/^\d+$/',$rawId))$selectedAddressId=(int)$rawId;}
+ $selectedAddress=$userId&&!$useNewAddress&&$selectedAddressId>0?shipping_address_by_id($userId,$selectedAddressId):null;
+ if($userId&&!$useNewAddress&&$selectedAddressId>0&&!$selectedAddress)throw new ShopError('نشانی انتخاب‌شده پیدا نشد؛ دوباره تلاش کنید.');
+ $postal=$selectedAddress?(string)$selectedAddress['postal_code']:digits(text_input('postal_code',10,10,$data));
+ $address=$selectedAddress?(string)$selectedAddress['address']:text_input('address',15,1000,$data);
+ $key=text_input('checkout_key',64,64);
  if(!preg_match('/^\d{10}$/',$postal))throw new ShopError('کد پستی باید ۱۰ رقم باشد.');
  $_SESSION['checkout_profile']=['name'=>$name,'phone'=>$phone,'postal_code'=>$postal,'address'=>$address];
- if($u)touch_user_shipping_profile((int)$u['id'],$phone,$postal,$address);
+ if($userId)touch_user_shipping_profile($userId,$phone,$postal,$address);
  $addressWithPostal=checkout_address_with_postal($address,$postal);
  if(!preg_match('/^[a-f0-9]{64}$/',$key)||!hash_equals($_SESSION['checkout_key']??'', $key))throw new ShopError('شناسه سبد معتبر نیست؛ صفحه تسویه را تازه کنید.');
  rate_limit('checkout-global',80);rate_limit('checkout-phone:'.$phone,8);
@@ -71,7 +80,7 @@ function checkout(): never {
  $order=transaction(function()use($u,$cart,$name,$phone,$addressWithPostal,$key,$fingerprint,$reserved){$lines=[];$sum=0;
   foreach($cart as $id=>$qty){$qty=(int)$qty;if($qty<1||$qty>1000)throw new ShopError('تعداد خرید نامعتبر است.');$p=one('SELECT * FROM ns_products WHERE id=? FOR UPDATE',[$id]);if(!$p||!$p['active'])throw new ShopError('یکی از محصولات دیگر قابل سفارش نیست.');if(!$reserved&&(int)$p['stock']<$qty)throw new ShopError('موجودی یکی از محصولات کافی نیست.');$price=unit_price($p,$qty);$lines[]=[$p,$qty,$price];$sum+=$price*$qty;}
   $shipping=shipping_cost($sum,settings());$total=$sum+$shipping;if($total>200000000)throw new ShopError('مبلغ سفارش بیش از سقف مجاز است.');
-  $code='NS-'.strtoupper(bin2hex(random_bytes(10)));query('INSERT INTO ns_orders(code,user_id,name,phone,address,total,shipping,checkout_key,request_hash) VALUES (?,?,?,?,?,?,?,?,?)',[$code,$u['id']??null,$name,$phone,$addressWithPostal,$total,$shipping,$key,$fingerprint]);$id=(int)db()->lastInsertId();
+  $id=0;$code='';for($tries=0;$tries<30;$tries++){$code=(string)random_int(100000,999999);try{query('INSERT INTO ns_orders(code,user_id,name,phone,address,total,shipping,checkout_key,request_hash) VALUES (?,?,?,?,?,?,?,?,?)',[$code,$u['id']??null,$name,$phone,$addressWithPostal,$total,$shipping,$key,$fingerprint]);$id=(int)db()->lastInsertId();break;}catch(PDOException $e){if((string)$e->getCode()==='23000')continue;throw $e;}}if(!$id)throw new ShopError('تولید کد سفارش انجام نشد؛ دوباره تلاش کنید.',503);
   foreach($lines as [$p,$qty,$price]){query('INSERT INTO ns_order_items(order_id,product_id,name,quantity,price) VALUES (?,?,?,?,?)',[$id,$p['id'],$p['name'],$qty,$price]);if(!$reserved)query('UPDATE ns_products SET stock=stock-?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?',[$qty,$p['id']]);}
   return ['id'=>$id,'code'=>$code,'total'=>$total];
  });

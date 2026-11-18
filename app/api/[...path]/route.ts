@@ -46,11 +46,12 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{path:string
  if(!order) throw new PublicError('سفارشی با این مشخصات پیدا نشد.');return NextResponse.json(order);
  }
  if(route==='checkout') {
- const v=z.object({name:z.string().min(3).max(100),phone,address:z.string().min(15).max(1000),checkoutKey:z.string().uuid(),items:z.array(z.object({id:z.string(),quantity:z.number().int().min(1).max(1000)})).min(1).max(100)}).parse(data);
+ const v=z.object({name:z.string().min(3).max(100),phone,address:z.string().min(15).max(1000),province:z.string().min(2).max(80),city:z.string().min(2).max(80),plaque:z.string().min(1).max(20),postalCode:z.string().regex(/^\d{10}$/,'کدپستی باید ۱۰ رقم باشد.'),checkoutKey:z.string().uuid(),items:z.array(z.object({id:z.string(),quantity:z.number().int().min(1).max(1000)})).min(1).max(100)}).parse(data);
  await rateLimit('checkout:'+v.phone,10);
  if(new Set(v.items.map(i=>i.id)).size!==v.items.length) throw new PublicError('سبد نامعتبر است.');
  if(!process.env.ZARINPAL_MERCHANT_ID) throw new PublicError('درگاه پرداخت هنوز توسط مدیر فعال نشده است.');
- const requestHash=digest(JSON.stringify({name:v.name,phone:v.phone,address:v.address,items:v.items,userId:user?.id||null}));
+ const fullAddress=`${v.province}، ${v.city}، ${v.address}، پلاک ${v.plaque}، کدپستی ${v.postalCode}`;
+ const requestHash=digest(JSON.stringify({name:v.name,phone:v.phone,address:fullAddress,items:v.items,userId:user?.id||null}));
  const previous=await db.order.findUnique({where:{checkoutKey:v.checkoutKey}});
  if(previous){if(previous.requestHash!==requestHash)throw new PublicError('کلید سفارش معتبر نیست.');if(previous.status==='PENDING'&&previous.authority)return NextResponse.json({url:paymentURL(previous.authority),code:previous.code});throw new PublicError('این درخواست قبلاً ثبت شده است. وضعیت سفارش را بررسی کنید.',409);}
  const order=await db.$transaction(async tx=>{
@@ -59,7 +60,7 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{path:string
  for(const item of v.items) {const p=await tx.product.findUnique({where:{id:item.id}});if(!p||!p.active)throw new PublicError('محصول در دسترس نیست.');const reserved=await tx.product.updateMany({where:{id:p.id,stock:{gte:item.quantity}},data:{stock:{decrement:item.quantity}}});if(!reserved.count)throw new PublicError(`موجودی ${p.name} کافی نیست.`);lines.push({productId:p.id,name:p.name,quantity:item.quantity,price:unitPrice(p,item.quantity,user?.wholesaleStatus==='APPROVED')});}
  const subtotal=lines.reduce((s,i)=>s+i.price*i.quantity,0);const shipping=shippingCost(subtotal,settings);
  if(subtotal+shipping>200000000) throw new PublicError('مبلغ سفارش بیش از سقف مجاز است.');
- return tx.order.create({data:{checkoutKey:v.checkoutKey,requestHash,code:'SP-'+randomBytes(8).toString('hex').toUpperCase(),name:v.name,phone:v.phone,address:v.address,total:subtotal+shipping,shipping,userId:user?.id,items:{create:lines}}});
+ return tx.order.create({data:{checkoutKey:v.checkoutKey,requestHash,code:'SP-'+randomBytes(8).toString('hex').toUpperCase(),name:v.name,phone:v.phone,address:fullAddress,total:subtotal+shipping,shipping,userId:user?.id,items:{create:lines}}});
  });
  try {const payable=Math.max(0,order.total-order.shipping);const payment=await gateway('request',{amount:payable*10,callback_url:`${process.env.APP_URL}/api/payment/callback`,description:`سفارش ${order.code}`,metadata:{mobile:order.phone}});await db.order.update({where:{id:order.id},data:{authority:payment.authority}});return NextResponse.json({url:paymentURL(payment.authority),code:order.code});}
  catch(error) {await db.$transaction(async tx=>{const changed=await tx.order.updateMany({where:{id:order.id,status:'PENDING',authority:null},data:{status:'CANCELLED'}});if(!changed.count)return;const items=await tx.orderItem.findMany({where:{orderId:order.id}});for(const i of items)await tx.product.update({where:{id:i.productId},data:{stock:{increment:i.quantity}}});});throw error;}
